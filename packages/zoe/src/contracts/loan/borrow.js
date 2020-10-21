@@ -1,4 +1,7 @@
 // @ts-check
+
+import '../../../exported';
+
 import { assert, details } from '@agoric/assert';
 import { E } from '@agoric/eventual-send';
 
@@ -8,16 +11,9 @@ import { liquidate } from './liquidate';
 import { makeCloseLoanInvitation } from './close';
 import { makeAddCollateralInvitation } from './addCollateral';
 
-/**
- * @param {ContractFacet} zcf
- * @param {ZCFSeat} lenderSeat
- * @param {number} mmr
- * @param {any} priceOracle
- */
+/** @type {MakeBorrowInvitation} */
 export const makeBorrowInvitation = (zcf, lenderSeat, mmr, priceOracle) => {
-  /**
-   * @param {ZCFSeat} borrowerSeat
-   */
+  /** @type {OfferHandler} */
   const borrow = async borrowerSeat => {
     assertProposalShape(borrowerSeat, {
       give: { Collateral: null },

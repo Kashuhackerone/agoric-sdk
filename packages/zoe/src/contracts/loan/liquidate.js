@@ -1,5 +1,8 @@
-import { E } from '@agoric/eventual-send';
 // @ts-check
+import '../../../exported';
+
+import { E } from '@agoric/eventual-send';
+
 
 import { depositToSeat, withdrawFromSeat, trade } from '../../contractSupport';
 

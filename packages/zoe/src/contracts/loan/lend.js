@@ -1,5 +1,7 @@
 // @ts-check
 
+import '../../../exported';
+
 import { assertProposalShape } from '../../contractSupport';
 
 // The lender puts up the tokens to be loaned to the borrower, but has
@@ -8,12 +10,14 @@ import { assertProposalShape } from '../../contractSupport';
 // payout. The payout may include either Loan- or Collateral-branded
 // digital assets or both.
 
+/** @type {MakeLendInvitation} */
 export const makeLendInvitation = (
   zcf,
   makeBorrowInvitation,
   mmr,
   priceOracle,
 ) => {
+  /** @type {OfferHandler} */
   const lend = seat => {
     // Lender will want the interest earned from the loan + their
     // refund or the results of the liquidation. If the price of

@@ -1,4 +1,7 @@
 // @ts-check
+
+import './types';
+
 import { assert, details } from '@agoric/assert';
 
 import { assertProposalShape, trade } from '../../contractSupport';
@@ -9,6 +12,7 @@ import { assertProposalShape, trade } from '../../contractSupport';
 // QUESTION: how is interest (aka stability fee on Maker) calculated?
 // Maker calculates on every block?
 
+/** @type {MakeCloseLoanInvitation} */
 export const makeCloseLoanInvitation = (
   zcf,
   collSeat,
@@ -20,6 +24,8 @@ export const makeCloseLoanInvitation = (
   // back
 
   // Also closes contract
+
+  /** @type {OfferHandler} */
   const repayAndClose = repaySeat => {
     assertProposalShape(repaySeat, {
       give: { Loan: null },
@@ -27,8 +33,12 @@ export const makeCloseLoanInvitation = (
     });
 
     const loanMath = zcf.getTerms().maths.Loan;
+    const {
+      Loan: loanBrand,
+      Collateral: collateralBrand,
+    } = zcf.getTerms().brands;
 
-    const repaid = repaySeat.getAmountAllocated('Loan');
+    const repaid = repaySeat.getAmountAllocated('Loan', loanBrand);
     const borrowedAmount = getBorrowedAmount();
     const interestAmount = getInterest();
     const required = loanMath.add(borrowedAmount, interestAmount);
@@ -48,7 +58,12 @@ export const makeCloseLoanInvitation = (
       zcf,
       {
         seat: repaySeat,
-        gains: { Collateral: collSeat.getAmountAllocated('Collateral') },
+        gains: {
+          Collateral: collSeat.getAmountAllocated(
+            'Collateral',
+            collateralBrand,
+          ),
+        },
       },
       {
         seat: collSeat,
@@ -72,7 +87,9 @@ export const makeCloseLoanInvitation = (
     repaySeat.exit();
     lenderSeat.exit();
     collSeat.exit();
-    zcf.shutdown('your loan is closed, thank you for your business');
+    const closeMsg = 'your loan is closed, thank you for your business';
+    zcf.shutdown(closeMsg);
+    return closeMsg;
   };
 
   // Note: we can't put the required repayment in the

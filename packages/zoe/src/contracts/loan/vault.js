@@ -1,10 +1,11 @@
 // @ts-check
 
+import '../../../exported';
+
 import { assert } from '@agoric/assert';
 
 // Eventually will be importable from '@agoric/zoe-contract-support'
 import { assertIssuerKeywords } from '../../contractSupport';
-import '../../../exported';
 import { makeLendInvitation } from './lend';
 import { makeBorrowInvitation } from './borrow';
 

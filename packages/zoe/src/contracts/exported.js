@@ -1,3 +1,5 @@
+import './loan/types';
+
 /**
  * @typedef {Object} SellItemsPublicFacet
  * @property {() => Issuer} getItemsIssuer

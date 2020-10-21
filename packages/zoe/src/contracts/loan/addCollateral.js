@@ -1,5 +1,7 @@
 // @ts-check
 
+import '../../../exported';
+
 import { assertProposalShape, trade } from '../../contractSupport';
 
 export const makeAddCollateralInvitation = (zcf, lenderSeat) => {
