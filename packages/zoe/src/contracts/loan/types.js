@@ -26,3 +26,12 @@
  * @param {() => Amount} getBorrowedAmount
  * @param {() => Interest } getInterest
  */
+
+/**
+ * Allows holder to add collateral to the contract. Exits the seat
+ * after adding.
+ *
+ * @callback MakeAddCollateralInvitation
+ * @param {ContractFacet} zcf
+ * @param {ZCFSeat} collSeat
+ */

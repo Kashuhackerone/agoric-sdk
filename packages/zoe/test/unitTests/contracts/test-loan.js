@@ -14,6 +14,7 @@ import { setup } from '../setupBasicMints';
 
 import { makeLendInvitation } from '../../../src/contracts/loan/lend';
 import { makeCloseLoanInvitation } from '../../../src/contracts/loan/close';
+import { makeAddCollateralInvitation } from '../../../src/contracts/loan/addCollateral';
 import { setupZCFTest } from '../zcf/setupZcfTest';
 
 const loanRoot = `${__dirname}/../../../src/contracts/loan/vault`;
@@ -221,8 +222,6 @@ test.todo(`makeCloseLoanInvitation repay but don't repay interest`);
 test.todo(`repay but wrong proposal type`);
 test.todo(`repay - request too much collateral`);
 
-
-
 test('makeCloseLoanInvitation repay all', async t => {
   const { zcf, zoe, collateralKit, loanKit } = await setupLoanUnitTest();
 
@@ -307,4 +306,53 @@ test('makeCloseLoanInvitation repay all', async t => {
 
   // Ensure no new offers can be made
   await checkNoNewOffers(t, zcf);
+});
+
+test.todo('makeAddCollateralInvitation - test bad proposal');
+
+test('makeAddCollateralInvitation', async t => {
+  const { zcf, zoe, collateralKit, loanKit } = await setupLoanUnitTest();
+
+  const collateral = collateralKit.amountMath.make(10);
+
+  // Set up the collateral seat
+  const { zcfSeat: collSeat } = await makeSeatKit(
+    zcf,
+    harden({ give: { Collateral: collateral } }),
+    harden({
+      Collateral: collateralKit.mint.mintPayment(collateral),
+    }),
+  );
+  const addCollateralInvitation = makeAddCollateralInvitation(zcf, collSeat);
+
+  await checkDescription(t, zoe, addCollateralInvitation, '');
+
+  const addedAmount = collateralKit.amountMath.make(3);
+
+  const proposal = harden({
+    give: { Collateral: addedAmount },
+  });
+
+  const payments = harden({
+    Collateral: collateralKit.mint.mintPayment(addedAmount),
+  });
+
+  const seat = await E(zoe).offer(addCollateralInvitation, proposal, payments);
+
+  t.is(await seat.getOfferResult(), '');
+
+  await checkPayouts(
+    t,
+    seat,
+    { Loan: loanKit, Collateral: collateralKit },
+    {
+      Loan: loanKit.amountMath.getEmpty(),
+      Collateral: collateralKit.amountMath.getEmpty(),
+    },
+    'addCollateralSeat',
+  );
+
+  // Ensure the collSeat gets the added collateral
+
+  t.deepEqual(collSeat.getCurrentAllocation(), '');
 });

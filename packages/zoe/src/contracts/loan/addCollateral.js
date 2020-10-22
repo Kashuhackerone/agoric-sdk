@@ -4,7 +4,8 @@ import '../../../exported';
 
 import { assertProposalShape, trade } from '../../contractSupport';
 
-export const makeAddCollateralInvitation = (zcf, lenderSeat) => {
+/** @type {MakeAddCollateralInvitation} */
+export const makeAddCollateralInvitation = (zcf, collSeat) => {
   const addCollateral = addCollateralSeat => {
     assertProposalShape(addCollateralSeat, {
       give: { Collateral: null },
@@ -15,7 +16,7 @@ export const makeAddCollateralInvitation = (zcf, lenderSeat) => {
     trade(
       zcf,
       {
-        seat: lenderSeat,
+        seat: collSeat,
         gains: {
           Collateral: addCollateralSeat.getAmountAllocated('Collateral'),
         },
