@@ -10,7 +10,6 @@ export const makeAddCollateralInvitation = (zcf, collSeat) => {
     assertProposalShape(addCollateralSeat, {
       give: { Collateral: null },
       want: {},
-      exit: { waived: null },
     });
 
     trade(

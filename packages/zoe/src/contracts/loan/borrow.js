@@ -7,7 +7,7 @@ import { E } from '@agoric/eventual-send';
 
 import { assertProposalShape, trade, natSafeMath } from '../../contractSupport';
 
-import { liquidate } from './liquidate';
+import { makeLiquidate } from './liquidate';
 import { makeCloseLoanInvitation } from './close';
 import { makeAddCollateralInvitation } from './addCollateral';
 
@@ -92,7 +92,20 @@ export const makeBorrowInvitation = (zcf, lenderSeat, mmr, priceOracle) => {
       100,
     );
     E(priceOracle)
-      .setWakeup(liquidationTriggerValue, harden({ wake: liquidate }))
+      .setWakeup(
+        liquidationTriggerValue,
+        harden({
+          wake: makeLiquidate(
+            zcf,
+            lenderSeat,
+            collateralSeat,
+            priceOracle,
+            autoswap,
+            getBorrowedAmount,
+            getInterest,
+          ),
+        }),
+      )
       .catch(err => {
         console.error(
           `Could not schedule automatic liquidation at the liquidationTriggerValue ${liquidationTriggerValue} using this priceOracle ${priceOracle}`,

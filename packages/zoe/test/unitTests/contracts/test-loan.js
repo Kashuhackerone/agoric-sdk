@@ -19,18 +19,39 @@ import { setupZCFTest } from '../zcf/setupZcfTest';
 
 const loanRoot = `${__dirname}/../../../src/contracts/loan/vault`;
 
+/**
+ * @param {import("ava").ExecutionContext<unknown>} t
+ * @param {UserSeat} seat
+ * @param {Keyword} keyword
+ * @param {IssuerKit} kit
+ * @param {Amount} expected
+ * @param {string} message
+ */
 const checkPayout = async (t, seat, keyword, kit, expected, message = '') => {
   const payout = await E(seat).getPayout(keyword);
   const amount = await kit.issuer.getAmountOf(payout);
-  t.truthy(kit.amountMath.isEqual(amount, expected));
-  t.truthy(seat.hasExited());
+  t.truthy(kit.amountMath.isEqual(amount, expected), message);
+  t.truthy(seat.hasExited(), message);
 };
 
+/**
+ * @param {import("ava").ExecutionContext<unknown>} t
+ * @param {ZoeService} zoe
+ * @param {ERef<Invitation>} invitation
+ * @param {string} expected
+ */
 const checkDescription = async (t, zoe, invitation, expected) => {
   const details = await E(zoe).getInvitationDetails(invitation);
   t.is(details.description, expected);
 };
 
+/**
+ * @param {import("ava").ExecutionContext<unknown>} t
+ * @param {ZoeService} zoe
+ * @param {ERef<Invitation>} invitation
+ * @param {InvitationDetails} expectedNullHandle expected invitation
+ * details with the handle set to 'null'
+ */
 const checkDetails = async (t, zoe, invitation, expectedNullHandle) => {
   const details = await E(zoe).getInvitationDetails(invitation);
   const detailsNullHandle = { ...details, handle: null };
@@ -199,7 +220,7 @@ test('makeLendInvitation', async t => {
   const makeBorrowInvitation = () => 'imaginary borrow invitation';
   const lendInvitation = makeLendInvitation(zcf, makeBorrowInvitation, 150, {});
 
-  await checkDescription(lendInvitation, 'lend');
+  await checkDescription(t, zoe, lendInvitation, 'lend');
 
   const maxLoan = loanKit.amountMath.make(1000);
 
@@ -325,7 +346,7 @@ test('makeAddCollateralInvitation', async t => {
   );
   const addCollateralInvitation = makeAddCollateralInvitation(zcf, collSeat);
 
-  await checkDescription(t, zoe, addCollateralInvitation, '');
+  await checkDescription(t, zoe, addCollateralInvitation, 'addCollateral');
 
   const addedAmount = collateralKit.amountMath.make(3);
 
@@ -339,7 +360,10 @@ test('makeAddCollateralInvitation', async t => {
 
   const seat = await E(zoe).offer(addCollateralInvitation, proposal, payments);
 
-  t.is(await seat.getOfferResult(), '');
+  t.is(
+    await seat.getOfferResult(),
+    'a warm fuzzy feeling that you are further away from default than ever before',
+  );
 
   await checkPayouts(
     t,
@@ -354,5 +378,7 @@ test('makeAddCollateralInvitation', async t => {
 
   // Ensure the collSeat gets the added collateral
 
-  t.deepEqual(collSeat.getCurrentAllocation(), '');
+  t.deepEqual(collSeat.getCurrentAllocation(), {
+    Collateral: collateralKit.amountMath.add(collateral, addedAmount),
+  });
 });

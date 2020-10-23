@@ -3,7 +3,6 @@ import '../../../exported';
 
 import { E } from '@agoric/eventual-send';
 
-
 import { depositToSeat, withdrawFromSeat, trade } from '../../contractSupport';
 
 // Question: does the borrower get anything back on liquidation? Or is
@@ -11,14 +10,17 @@ import { depositToSeat, withdrawFromSeat, trade } from '../../contractSupport';
 
 // triggered by priceOracle. Also closes contract
 /**
- * 
- * @param {ContractFacet} zcf 
- * @param {ZCFSeat} lenderSeat 
- * @param {ZCFSeat} collSeat 
- * @param {() => Amount} getBorrowedAmount 
- * @param {() => Amount} getInterest 
+ * @param {ContractFacet} zcf
+ * @param {ZCFSeat} lenderSeat
+ * @param {ZCFSeat} collSeat
+ * @param priceOracle
+ * @param autoswap
+ * @param priceOracle
+ * @param autoswap
+ * @param {() => Amount} getBorrowedAmount
+ * @param {() => Amount} getInterest
  */
-export const makeLiquidate = (
+export const makeLiquidate = async (
   zcf,
   lenderSeat,
   collSeat,
@@ -27,7 +29,7 @@ export const makeLiquidate = (
   getBorrowedAmount,
   getInterest,
 ) => {
-  const liquidate = () => {
+  const liquidate = async () => {
     const loanMath = zcf.getTerms().maths.Loan;
     const collateralBrand = zcf.getTerms().brands.Collateral;
     const zoeService = zcf.getZoeService();
@@ -44,9 +46,13 @@ export const makeLiquidate = (
       collateralBrand,
     );
 
-    const { Collateral: collateralPayment } = await withdrawFromSeat(zcf, collSeat, {
-      Collateral: collateralToSell,
-    });
+    const { Collateral: collateralPayment } = await withdrawFromSeat(
+      zcf,
+      collSeat,
+      {
+        Collateral: collateralToSell,
+      },
+    );
 
     const proposal = harden({
       want: { Out: required },
@@ -69,10 +75,14 @@ export const makeLiquidate = (
 
     const amounts = harden({ Collateral: allocation.Out, Loan: allocation.In });
 
-    await depositToSeat(zcf, lenderSeat, amounts, { Collateral: collateralPayout, Loan: loanPayout });
+    await depositToSeat(zcf, lenderSeat, amounts, {
+      Collateral: collateralPayout,
+      Loan: loanPayout,
+    });
 
     // move anything left over on collSeat over to lenderSeat
-    trade(zcf, 
+    trade(
+      zcf,
       { seat: collSeat, gains: {} },
       { seat: lenderSeat, gains: collSeat.getCurrentAllocation() },
     );
