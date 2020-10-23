@@ -15,6 +15,7 @@
  * @param {number} mmr Margin Maintenance Requirement, in percent.
  * Must be greater than 100
  * @param {priceWakeup} priceOracle
+ * @param {any} autoswap
  * @returns {Promise<Invitation>} borrowInvitation
  */
 

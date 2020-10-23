@@ -16,6 +16,7 @@ export const makeLendInvitation = (
   makeBorrowInvitation,
   mmr,
   priceOracle,
+  autoswap,
 ) => {
   /** @type {OfferHandler} */
   const lend = seat => {
@@ -37,7 +38,7 @@ export const makeLendInvitation = (
       exit: { onDemand: null }, // The lender must be able to exit with their loan at any time before borrowing
     });
 
-    return makeBorrowInvitation(zcf, seat, mmr, priceOracle);
+    return makeBorrowInvitation(zcf, seat, mmr, priceOracle, autoswap);
   };
 
   return zcf.makeInvitation(lend, 'lend');

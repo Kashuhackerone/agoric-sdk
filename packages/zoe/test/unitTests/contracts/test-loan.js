@@ -15,6 +15,7 @@ import { setup } from '../setupBasicMints';
 import { makeLendInvitation } from '../../../src/contracts/loan/lend';
 import { makeCloseLoanInvitation } from '../../../src/contracts/loan/close';
 import { makeAddCollateralInvitation } from '../../../src/contracts/loan/addCollateral';
+import { makeBorrowInvitation } from '../../../src/contracts/loan/borrow';
 import { setupZCFTest } from '../zcf/setupZcfTest';
 
 const loanRoot = `${__dirname}/../../../src/contracts/loan/vault`;
@@ -98,13 +99,18 @@ const setupLoanUnitTest = async (
     Loan: loanKit.issuer,
   });
 
-  const { zcf, zoe } = await setupZCFTest(issuerKeywordRecord, terms);
+  const { zcf, zoe, installation, instance } = await setupZCFTest(
+    issuerKeywordRecord,
+    terms,
+  );
 
   return {
     zcf,
     zoe,
     collateralKit,
     loanKit,
+    installation,
+    instance,
   };
 };
 
@@ -382,3 +388,49 @@ test('makeAddCollateralInvitation', async t => {
     Collateral: collateralKit.amountMath.add(collateral, addedAmount),
   });
 });
+
+test.todo('test liquidate with mocked autoswap');
+test.todo('test liquidate with real autoswap');
+
+test('borrow customProps', async t => {
+  const {
+    zcf,
+    zoe,
+    loanKit,
+    installation,
+    instance,
+  } = await setupLoanUnitTest();
+  // Set up the lender seat
+  const maxLoan = loanKit.amountMath.make(100);
+  const { zcfSeat: lenderSeat } = await makeSeatKit(
+    zcf,
+    harden({ give: { Loan: maxLoan } }),
+    harden({
+      Loan: loanKit.mint.mintPayment(maxLoan),
+    }),
+  );
+  const mmr = undefined;
+  const priceOracle = undefined;
+  const autoswap = undefined;
+  const borrowInvitation = makeBorrowInvitation(
+    zcf,
+    lenderSeat,
+    mmr,
+    priceOracle,
+    autoswap,
+  );
+
+  await checkDetails(t, zoe, borrowInvitation, {
+    description: 'borrow',
+    handle: null,
+    installation,
+    instance,
+    maxLoan,
+  });
+});
+
+test.todo('borrow makeCloseLoanInvitation');
+test.todo('borrow makeAddCollateralInvitation');
+test.todo('borrow makeMarginCallNotifier');
+test.todo('borrow getLiquidationNotifier');
+test.todo('borrow bad proposal');

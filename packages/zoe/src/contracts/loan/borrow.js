@@ -12,7 +12,13 @@ import { makeCloseLoanInvitation } from './close';
 import { makeAddCollateralInvitation } from './addCollateral';
 
 /** @type {MakeBorrowInvitation} */
-export const makeBorrowInvitation = (zcf, lenderSeat, mmr, priceOracle) => {
+export const makeBorrowInvitation = (
+  zcf,
+  lenderSeat,
+  mmr,
+  priceOracle,
+  autoswap,
+) => {
   /** @type {OfferHandler} */
   const borrow = async borrowerSeat => {
     assertProposalShape(borrowerSeat, {
@@ -95,15 +101,7 @@ export const makeBorrowInvitation = (zcf, lenderSeat, mmr, priceOracle) => {
       .setWakeup(
         liquidationTriggerValue,
         harden({
-          wake: makeLiquidate(
-            zcf,
-            lenderSeat,
-            collateralSeat,
-            priceOracle,
-            autoswap,
-            getBorrowedAmount,
-            getInterest,
-          ),
+          wake: makeLiquidate(zcf, lenderSeat, collateralSeat, autoswap),
         }),
       )
       .catch(err => {

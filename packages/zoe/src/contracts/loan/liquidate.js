@@ -3,7 +3,7 @@ import '../../../exported';
 
 import { E } from '@agoric/eventual-send';
 
-import { depositToSeat, withdrawFromSeat, trade } from '../../contractSupport';
+import { depositToSeat, withdrawFromSeat } from '../../contractSupport';
 
 // Question: does the borrower get anything back on liquidation? Or is
 // it only the lender?
@@ -13,55 +13,38 @@ import { depositToSeat, withdrawFromSeat, trade } from '../../contractSupport';
  * @param {ContractFacet} zcf
  * @param {ZCFSeat} lenderSeat
  * @param {ZCFSeat} collSeat
- * @param priceOracle
- * @param autoswap
- * @param priceOracle
- * @param autoswap
- * @param {() => Amount} getBorrowedAmount
- * @param {() => Amount} getInterest
+ * @param {any} autoswap
  */
-export const makeLiquidate = async (
-  zcf,
-  lenderSeat,
-  collSeat,
-  priceOracle,
-  autoswap,
-  getBorrowedAmount,
-  getInterest,
-) => {
+export const makeLiquidate = async (zcf, lenderSeat, collSeat, autoswap) => {
+  // For simplicity, we will sell all collateral.
   const liquidate = async () => {
-    const loanMath = zcf.getTerms().maths.Loan;
-    const collateralBrand = zcf.getTerms().brands.Collateral;
+    const loanBrand = zcf.getTerms().brands.Loan;
     const zoeService = zcf.getZoeService();
 
-    const borrowedAmount = getBorrowedAmount();
-    const interestAmount = getInterest();
-    const required = loanMath.add(borrowedAmount, interestAmount);
+    const allCollateral = collSeat.getAmountAllocated('Collateral');
 
-    // How much collateral do we have to sell to repay the required
-    // amount?
     // TODO: add some buffer in case the price changes?
-    const collateralToSell = await E(priceOracle).getPriceOut(
-      required,
-      collateralBrand,
+    const expectedValue = await E(autoswap).getInputPrice(
+      allCollateral,
+      loanBrand,
     );
 
     const { Collateral: collateralPayment } = await withdrawFromSeat(
       zcf,
       collSeat,
       {
-        Collateral: collateralToSell,
+        Collateral: allCollateral,
       },
     );
 
     const proposal = harden({
-      want: { Out: required },
-      give: { In: collateralToSell },
+      want: { Out: expectedValue },
+      give: { In: allCollateral },
     });
 
     const payments = harden({ In: collateralPayment });
 
-    const swapInvitation = E(autoswap).getSwapInvitation();
+    const swapInvitation = E(autoswap).makeSwapInInvitation();
     const autoswapSeat = E(zoeService).offer(
       swapInvitation,
       proposal,
@@ -79,13 +62,6 @@ export const makeLiquidate = async (
       Collateral: collateralPayout,
       Loan: loanPayout,
     });
-
-    // move anything left over on collSeat over to lenderSeat
-    trade(
-      zcf,
-      { seat: collSeat, gains: {} },
-      { seat: lenderSeat, gains: collSeat.getCurrentAllocation() },
-    );
 
     lenderSeat.exit();
     collSeat.exit();
