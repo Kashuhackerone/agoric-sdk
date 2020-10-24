@@ -71,5 +71,5 @@
  * @callback MakeLiquidate
  * @param {ContractFacet} zcf
  * @param {LoanConfigWithBorrower} config
- * @returns Liquidate
+ * @returns {() => void} liquidate
  */
