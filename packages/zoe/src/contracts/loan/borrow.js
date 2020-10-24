@@ -7,18 +7,16 @@ import { E } from '@agoric/eventual-send';
 
 import { assertProposalShape, trade, natSafeMath } from '../../contractSupport';
 
-import { makeLiquidate } from './liquidate';
-import { makeCloseLoanInvitation } from './close';
-import { makeAddCollateralInvitation } from './addCollateral';
-
 /** @type {MakeBorrowInvitation} */
-export const makeBorrowInvitation = (
-  zcf,
-  lenderSeat,
-  mmr,
-  priceOracle,
-  autoswap,
-) => {
+export const makeBorrowInvitation = (zcf, config) => {
+  const {
+    priceOracle,
+    mmr,
+    makeLiquidate,
+    makeCloseLoanInvitation,
+    makeAddCollateralInvitation,
+    lenderSeat,
+  } = config;
   /** @type {OfferHandler} */
   const borrow = async borrowerSeat => {
     assertProposalShape(borrowerSeat, {
@@ -97,11 +95,21 @@ export const makeBorrowInvitation = (
       natSafeMath.multiply(wantedLoan, mmr),
       100,
     );
+    const debt = wantedLoan;
+
+    // TODO: calculate interest
+    // QUESTION: how is interest (aka stability fee on Maker) calculated?
+    // Maker calculates on every block?
+    const getInterest = () => loanMath.getEmpty();
+    const getDebt = () => loanMath.add(debt, getInterest());
+
+    const configWithBorrower = { ...config, getDebt, collateralSeat };
+
     E(priceOracle)
       .setWakeup(
         liquidationTriggerValue,
         harden({
-          wake: makeLiquidate(zcf, lenderSeat, collateralSeat, autoswap),
+          wake: makeLiquidate(zcf, configWithBorrower),
         }),
       )
       .catch(err => {
@@ -125,8 +133,10 @@ export const makeBorrowInvitation = (
     // TODO: Add ability to withdraw excess collateral
     // TODO: Add ability to repay partially
     return harden({
-      makeCloseLoanInvitation,
-      makeAddCollateralInvitation,
+      makeCloseLoanInvitation: () =>
+        makeCloseLoanInvitation(zcf, configWithBorrower),
+      makeAddCollateralInvitation: () =>
+        makeAddCollateralInvitation(zcf, configWithBorrower),
       makeMarginCallNotifier,
       getLiquidationNotifier,
     });

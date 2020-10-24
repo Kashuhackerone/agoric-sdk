@@ -4,8 +4,14 @@ import '../../../exported';
 
 import { assertProposalShape, trade } from '../../contractSupport';
 
+// Create an invitation to add collateral to the loan. Part of the
+// facet given to the borrower.
+
 /** @type {MakeAddCollateralInvitation} */
-export const makeAddCollateralInvitation = (zcf, collSeat) => {
+export const makeAddCollateralInvitation = (zcf, config) => {
+  const { collateralSeat } = config;
+
+  /** @type {OfferHandler} */
   const addCollateral = addCollateralSeat => {
     assertProposalShape(addCollateralSeat, {
       give: { Collateral: null },
@@ -15,7 +21,7 @@ export const makeAddCollateralInvitation = (zcf, collSeat) => {
     trade(
       zcf,
       {
-        seat: collSeat,
+        seat: collateralSeat,
         gains: {
           Collateral: addCollateralSeat.getAmountAllocated('Collateral'),
         },

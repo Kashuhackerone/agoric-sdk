@@ -1,31 +1,60 @@
 /**
+ * @typedef LoanConfig
+ * @property {number} mmr
+ * @property {PriceOracle} priceOracle
+ * @property {Autoswap} autoswap
+ * @property {MakeBorrowInvitation} makeBorrowInvitation
+ * @property {MakeLiquidate} makeLiquidate
+ * @property {MakeCloseLoanInvitation} makeCloseLoanInvitation
+ * @property {MakeAddCollateralInvitation} makeAddCollateralInvitation
+ *
+ * The beginning configuration for a loan before a lender or
+ * collateral has been added.
+ */
+
+/**
+ * @typedef ConfigLender
+ * @property {ZCFSeat} lenderSeat
+ */
+
+/**
+ * @typedef ConfigBorrower
+ * @property {ZCFSeat} lenderSeat
+ * @property {ZCFSeat} collateralSeat
+ * @property {() => Amount} getDebt
+ */
+
+/**
+ * @typedef {LoanConfig & ConfigLender} LoanConfigWithLender
+ *
+ * The loan has a lender.
+ */
+
+/**
+ * @typedef {LoanConfig & ConfigBorrower } LoanConfigWithBorrower
+ *
+ * The loan has a lender and collateral.
+ */
+
+/**
  * @callback MakeLendInvitation
  * @param {ContractFacet} zcf
- * @param {MakeBorrowInvitation} makeBorrowInvitation
- * @param {number} mmr Margin Maintenance Requirement, in percent.
- * Must be greater than 100
- * @param {priceWakeup} priceOracle
+ * @param {LoanConfig} config
  * @returns {Promise<Invitation>} lendInvitation
  */
 
 /**
  * @callback MakeBorrowInvitation
  * @param {ContractFacet} zcf
- * @param {ZcfSeat} lenderSeat
- * @param {number} mmr Margin Maintenance Requirement, in percent.
- * Must be greater than 100
- * @param {priceWakeup} priceOracle
- * @param {any} autoswap
+ * @param {LoanConfigWithLender} config
  * @returns {Promise<Invitation>} borrowInvitation
  */
 
 /**
  * @callback MakeCloseLoanInvitation
  * @param {ContractFacet} zcf
- * @param {ZcfSeat} collSeat
- * @param {ZcfSeat} lenderSeat
- * @param {() => Amount} getBorrowedAmount
- * @param {() => Interest } getInterest
+ * @param {LoanConfigWithBorrower} config
+ * @returns {Promise<Invitation>} closeLoanInvitation
  */
 
 /**
@@ -34,5 +63,13 @@
  *
  * @callback MakeAddCollateralInvitation
  * @param {ContractFacet} zcf
- * @param {ZCFSeat} collSeat
+ * @param {LoanConfigWithBorrower} config
+ * @returns {Promise<Invitation>} addCollateralInvitation
+ */
+
+/**
+ * @callback MakeLiquidate
+ * @param {ContractFacet} zcf
+ * @param {LoanConfigWithBorrower} config
+ * @returns Liquidate
  */

@@ -5,23 +5,24 @@ import { E } from '@agoric/eventual-send';
 
 import { depositToSeat, withdrawFromSeat } from '../../contractSupport';
 
-// Question: does the borrower get anything back on liquidation? Or is
-// it only the lender?
-
-// triggered by priceOracle. Also closes contract
 /**
- * @param {ContractFacet} zcf
- * @param {ZCFSeat} lenderSeat
- * @param {ZCFSeat} collSeat
- * @param {any} autoswap
+ * This function is triggered by the priceOracle when the value of the
+ * collateral is below the mmr percentage. The function performs the
+ * liquidation and then shuts down the contract. Note that if a
+ * liquidation occurs, the borrower gets nothing and they can take no
+ * further action.
+ *
+ * @type {MakeLiquidate}
  */
-export const makeLiquidate = async (zcf, lenderSeat, collSeat, autoswap) => {
+export const makeLiquidate = async (zcf, config) => {
+  const { collateralSeat, autoswap, lenderSeat } = config;
+
   // For simplicity, we will sell all collateral.
   const liquidate = async () => {
     const loanBrand = zcf.getTerms().brands.Loan;
     const zoeService = zcf.getZoeService();
 
-    const allCollateral = collSeat.getAmountAllocated('Collateral');
+    const allCollateral = collateralSeat.getAmountAllocated('Collateral');
 
     // TODO: add some buffer in case the price changes?
     const expectedValue = await E(autoswap).getInputPrice(
@@ -31,7 +32,7 @@ export const makeLiquidate = async (zcf, lenderSeat, collSeat, autoswap) => {
 
     const { Collateral: collateralPayment } = await withdrawFromSeat(
       zcf,
-      collSeat,
+      collateralSeat,
       {
         Collateral: allCollateral,
       },
@@ -56,7 +57,7 @@ export const makeLiquidate = async (zcf, lenderSeat, collSeat, autoswap) => {
 
     const allocation = await E(autoswapSeat).getCurrentAllocation();
 
-    const amounts = harden({ Collateral: allocation.Out, Loan: allocation.In });
+    const amounts = harden({ Loan: allocation.Out, Collateral: allocation.In });
 
     await depositToSeat(zcf, lenderSeat, amounts, {
       Collateral: collateralPayout,
@@ -64,7 +65,7 @@ export const makeLiquidate = async (zcf, lenderSeat, collSeat, autoswap) => {
     });
 
     lenderSeat.exit();
-    collSeat.exit();
+    collateralSeat.exit();
     zcf.shutdown('your loan had to be liquidated');
   };
 

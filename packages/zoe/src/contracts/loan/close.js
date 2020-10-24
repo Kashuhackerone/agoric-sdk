@@ -6,24 +6,14 @@ import { assert, details } from '@agoric/assert';
 
 import { assertProposalShape, trade } from '../../contractSupport';
 
-// The amount which must be repaid is just the amount loaned plus
-// interest (aka stability fee)
-
-// QUESTION: how is interest (aka stability fee on Maker) calculated?
-// Maker calculates on every block?
+// The debt, the amount which must be repaid, is just the amount
+// loaned plus interest (aka stability fee). All debt must be repaid
+// in one offer. In exchange for total repayment, all collateral is
+// given back and the contract is shutdown.
 
 /** @type {MakeCloseLoanInvitation} */
-export const makeCloseLoanInvitation = (
-  zcf,
-  collSeat,
-  lenderSeat,
-  getBorrowedAmount,
-  getInterest,
-) => {
-  // If you repay (amount borrowed + interest) you get all collateral
-  // back
-
-  // Also closes contract
+export const makeCloseLoanInvitation = (zcf, config) => {
+  const { collateralSeat, getDebt, lenderSeat } = config;
 
   /** @type {OfferHandler} */
   const repayAndClose = repaySeat => {
@@ -33,41 +23,40 @@ export const makeCloseLoanInvitation = (
     });
 
     const loanMath = zcf.getTerms().maths.Loan;
-    const {
-      Loan: loanBrand,
-      Collateral: collateralBrand,
-    } = zcf.getTerms().brands;
+    const loanBrand = zcf.getTerms().brands.Loan;
+    const collateralBrand = zcf.getTerms().brands.Collateral;
 
     const repaid = repaySeat.getAmountAllocated('Loan', loanBrand);
-    const borrowedAmount = getBorrowedAmount();
-    const interestAmount = getInterest();
-    const required = loanMath.add(borrowedAmount, interestAmount);
 
-    // You must pay off the entire remainder
+    // This must be a function because the amount of debt will change
+    // over time as interest is added.
+    const debt = getDebt();
+
+    // All debt must be repaid.
     assert(
-      loanMath.isGTE(repaid, required),
-      details`Not enough Loan assets have been repaid.  ${required} is required, but only ${repaid} was repaid.`,
+      loanMath.isGTE(repaid, debt),
+      details`Not enough Loan assets have been repaid.  ${debt} is required, but only ${repaid} was repaid.`,
     );
 
-    // Cannot use `swap` or `swapExact` helper because the collSeat
-    // doesn't have a want.
+    // We cannot use `swap` or `swapExact` helper because the collateralSeat
+    // doesn't have a `want`.
 
     // Transfer the collateral to the repaySeat and remove the
-    // required loan tokens.
+    // required Loan tokens. Any excess Loan tokens are kept by the repaySeat.
     trade(
       zcf,
       {
         seat: repaySeat,
         gains: {
-          Collateral: collSeat.getAmountAllocated(
+          Collateral: collateralSeat.getAmountAllocated(
             'Collateral',
             collateralBrand,
           ),
         },
       },
       {
-        seat: collSeat,
-        gains: { Loan: required },
+        seat: collateralSeat,
+        gains: { Loan: debt },
       },
     );
 
@@ -76,17 +65,17 @@ export const makeCloseLoanInvitation = (
       zcf,
       {
         seat: lenderSeat,
-        gains: { Loan: required },
+        gains: { Loan: debt },
       },
       {
-        seat: collSeat,
+        seat: collateralSeat,
         gains: {},
       },
     );
 
     repaySeat.exit();
     lenderSeat.exit();
-    collSeat.exit();
+    collateralSeat.exit();
     const closeMsg = 'your loan is closed, thank you for your business';
     zcf.shutdown(closeMsg);
     return closeMsg;

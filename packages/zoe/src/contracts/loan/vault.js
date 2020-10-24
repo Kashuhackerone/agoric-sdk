@@ -1,13 +1,14 @@
 // @ts-check
-
 import '../../../exported';
 
 import { assert } from '@agoric/assert';
 
-// Eventually will be importable from '@agoric/zoe-contract-support'
 import { assertIssuerKeywords } from '../../contractSupport';
 import { makeLendInvitation } from './lend';
 import { makeBorrowInvitation } from './borrow';
+import { makeLiquidate } from './liquidate';
+import { makeCloseLoanInvitation } from './close';
+import { makeAddCollateralInvitation } from './addCollateral';
 
 /**
  * Add collateral of a particular brand and get a loan of another
@@ -25,18 +26,27 @@ const start = zcf => {
   // percent of the loan amount, liquidate. Margin calls are set up by
   // the borrower based on their own assessment of risk.
 
+  // Rather than grabbing the terms each time we use them, let's set
+  // some defaults and add them to a contract-wide config.
   const {
     mmr = 150, // Maintenance Margin Requirement
     priceOracle,
+    autoswap,
   } = zcf.getTerms();
   assert(priceOracle, `priceOracle must be provided`);
+  assert(autoswap, `an autoswap instance must be provided`);
 
-  const creatorInvitation = makeLendInvitation(
-    zcf,
-    makeBorrowInvitation,
+  const config = harden({
     mmr,
     priceOracle,
-  );
+    autoswap,
+    makeBorrowInvitation,
+    makeLiquidate,
+    makeCloseLoanInvitation,
+    makeAddCollateralInvitation,
+  });
+
+  const creatorInvitation = makeLendInvitation(zcf, config);
 
   return { creatorInvitation };
 };
