@@ -19,9 +19,8 @@ import {
 import { trade } from '../../../../src/contractSupport';
 
 test('test liquidate with mocked autoswap', async t => {
-  const { zcf, zoe, collateralKit, loanKit } = await setupLoanUnitTest();
-  // Set up the lender seat
-  const maxLoan = loanKit.amountMath.make(100);
+  const { zcf, collateralKit, loanKit } = await setupLoanUnitTest();
+  // Set up the lender seat. At this point the lender has nothing.
   const { zcfSeat: lenderSeat, userSeat: lenderUserSeat } = await makeSeatKit(
     zcf,
     { give: {} },
@@ -29,7 +28,10 @@ test('test liquidate with mocked autoswap', async t => {
   );
 
   const collateral = collateralKit.amountMath.make(10);
-  const { zcfSeat: collateralSeat } = await makeSeatKit(
+  const {
+    zcfSeat: collateralSeat,
+    userSeat: collateralUserSeat,
+  } = await makeSeatKit(
     zcf,
     { give: { Collateral: collateral } },
     { Collateral: collateralKit.mint.mintPayment(collateral) },
@@ -98,6 +100,18 @@ test('test liquidate with mocked autoswap', async t => {
     { Loan: loanKit, Collateral: collateralKit },
     { Loan: price, Collateral: collateralKit.amountMath.getEmpty() },
     'lenderSeat',
+  );
+
+  // Ensure nothing was left on collateralSeat
+  await checkPayouts(
+    t,
+    collateralUserSeat,
+    { Loan: loanKit, Collateral: collateralKit },
+    {
+      Loan: loanKit.amountMath.getEmpty(),
+      Collateral: collateralKit.amountMath.getEmpty(),
+    },
+    'collateralSeat',
   );
 
   // Ensure no further offers accepted
