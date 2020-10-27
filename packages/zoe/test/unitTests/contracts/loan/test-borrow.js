@@ -9,16 +9,11 @@ import test from 'ava';
 
 import { E } from '@agoric/eventual-send';
 
-import { MathKind, makeIssuerKit } from '@agoric/ERTP';
+import { MathKind, makeIssuerKit } from '@agoric/ertp';
 import { makePromiseKit } from '@agoric/promise-kit';
 import { natSafeMath } from '../../../../src/contractSupport';
 
-import {
-  setupLoanUnitTest,
-  makeSeatKit,
-  checkDetails,
-  checkDescription,
-} from './helpers';
+import { setupLoanUnitTest, makeSeatKit, checkDetails } from './helpers';
 
 import { makeBorrowInvitation } from '../../../../src/contracts/loan/borrow';
 
