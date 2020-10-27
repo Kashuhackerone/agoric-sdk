@@ -54,7 +54,7 @@ const setupBorrow = async () => {
     getInputPrice: (amountIn, _brandOut) => {
       return loanKit.amountMath.make(natSafeMath.multiply(amountIn.value, 2));
     },
-    priceWhenBelow: (_assetAmount, _priceLimit) => priceBelowPromiseKit.promise,
+    priceWhenLT: (_assetAmount, _priceLimit) => priceBelowPromiseKit.promise,
   };
 
   const autoswap = {};

@@ -106,7 +106,7 @@ export const makeBorrowInvitation = (zcf, config) => {
 
     const configWithBorrower = { ...config, getDebt, collateralSeat };
 
-    const liquidationPromise = E(priceOracle).priceWhenBelow(
+    const liquidationPromise = E(priceOracle).priceWhenLT(
       collateralGiven,
       liquidationTriggerValue,
     );
@@ -126,7 +126,7 @@ export const makeBorrowInvitation = (zcf, config) => {
 
     // The borrower can set up their own margin calls by getting the
     // priceOracle from the terms and calling
-    // `E(priceOracle).priceWhenBelow(collateralGiven, x)` where x is
+    // `E(priceOracle).priceWhenLT(collateralGiven, x)` where x is
     // the priceLimit at which they want a reminder to addCollateral.
 
     // TODO: Add ability to liquidate partially
