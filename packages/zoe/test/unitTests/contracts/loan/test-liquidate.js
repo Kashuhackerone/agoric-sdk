@@ -7,7 +7,7 @@ import '@agoric/install-ses';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import test from 'ava';
 
-import { makeLiquidate } from '../../../../src/contracts/loan/liquidate';
+import { liquidate } from '../../../../src/contracts/loan/liquidate';
 
 import {
   setupLoanUnitTest,
@@ -74,21 +74,11 @@ test('test liquidate with mocked autoswap', async t => {
   };
 
   const autoswap = {
-    getInputPrice: (amountIn, brandOut) => {
-      // The amountIn will be `collateral`, and the brandOut is
-      // loanBrand
-      t.deepEqual(amountIn, collateral);
-      t.is(brandOut, loanKit.brand);
-
-      // Let's say it's worth 20 loan tokens
-      return price;
-    },
     makeSwapInInvitation: () => zcf.makeInvitation(swapHandler, 'swap'),
   };
 
   const config = { collateralSeat, autoswap, lenderSeat };
-  const liquidate = await makeLiquidate(zcf, config);
-  await liquidate();
+  await liquidate(zcf, config, price);
 
   // Ensure collateralSeat exited
   t.truthy(collateralSeat.hasExited());

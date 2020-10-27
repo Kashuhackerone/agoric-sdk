@@ -4,7 +4,7 @@
  * @property {PriceOracle} priceOracle
  * @property {Autoswap} autoswap
  * @property {MakeBorrowInvitation} makeBorrowInvitation
- * @property {MakeLiquidate} makeLiquidate
+ * @property {Liquidate} liquidate
  * @property {MakeCloseLoanInvitation} makeCloseLoanInvitation
  * @property {MakeAddCollateralInvitation} makeAddCollateralInvitation
  *
@@ -68,8 +68,9 @@
  */
 
 /**
- * @callback MakeLiquidate
+ * @callback Liquidate
  * @param {ContractFacet} zcf
  * @param {LoanConfigWithBorrower} config
- * @returns {() => void} liquidate
+ * @param {Amount} expectedValue
+ * @returns {void}
  */

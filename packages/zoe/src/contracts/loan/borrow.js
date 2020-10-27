@@ -12,7 +12,7 @@ export const makeBorrowInvitation = (zcf, config) => {
   const {
     priceOracle,
     mmr,
-    makeLiquidate,
+    liquidate,
     makeCloseLoanInvitation,
     makeAddCollateralInvitation,
     lenderSeat,
@@ -22,7 +22,6 @@ export const makeBorrowInvitation = (zcf, config) => {
     assertProposalShape(borrowerSeat, {
       give: { Collateral: null },
       want: { Loan: null },
-      exit: { waived: null }, // Does this have to be waived?
     });
 
     const collateralGiven = borrowerSeat.getAmountAllocated('Collateral');
@@ -32,7 +31,7 @@ export const makeBorrowInvitation = (zcf, config) => {
     const wantedLoan = borrowerSeat.getProposal().want.Loan;
 
     // The value of the collateral in the Loan brand
-    const collateralValue = await E(priceOracle).getPrice(
+    const collateralPriceInLoanBrand = await E(priceOracle).getInputPrice(
       collateralGiven,
       loanBrand,
     );
@@ -40,12 +39,18 @@ export const makeBorrowInvitation = (zcf, config) => {
 
     // formula: assert collateralValue*100 >= wantedLoan*mmr
     // TODO: assess for rounding errors
+
+    const approxForMsg = loanMath.make(
+      natSafeMath.floorDivide(natSafeMath.multiply(wantedLoan.value, mmr), 100),
+    );
     assert(
       loanMath.isGTE(
-        natSafeMath.multiply(collateralValue.value, 100),
-        natSafeMath.multiply(wantedLoan.value * mmr),
+        loanMath.make(
+          natSafeMath.multiply(collateralPriceInLoanBrand.value, 100),
+        ),
+        loanMath.make(natSafeMath.multiply(wantedLoan.value, mmr)),
       ),
-      details`The required margin is ${mmr} of ${wantedLoan} but collateral only had value of ${collateralValue}`,
+      details`The required margin is approximately ${approxForMsg} but collateral only had value of ${collateralPriceInLoanBrand}`,
     );
 
     // Assert that the collateralGiven has not changed after the AWAIT
@@ -59,23 +64,23 @@ export const makeBorrowInvitation = (zcf, config) => {
 
     const { zcfSeat: collateralSeat } = zcf.makeEmptySeatKit();
 
-    // Transfer *all* collateral to the collateral seat.
-    trade(
-      zcf,
-      {
-        seat: collateralSeat,
-        gains: { Collateral: collateralGiven },
-      },
-      { seat: borrowerSeat, gains: {} },
-    );
-
-    // Transfer only the wanted Loan amount to the borrower seat
-
+    // Transfer the wanted Loan amount to the collateralSeat
     trade(
       zcf,
       {
         seat: lenderSeat,
         gains: {},
+      },
+      { seat: collateralSeat, gains: { Loan: wantedLoan } },
+    );
+
+    // Transfer *all* collateral to the collateral seat. Transfer the
+    // wanted Loan amount to the borrower.
+    trade(
+      zcf,
+      {
+        seat: collateralSeat,
+        gains: { Collateral: collateralGiven },
       },
       { seat: borrowerSeat, gains: { Loan: wantedLoan } },
     );
@@ -85,15 +90,11 @@ export const makeBorrowInvitation = (zcf, config) => {
     // that will let them continue to interact with the contract.
     borrowerSeat.exit();
 
-    // TODO: set up automatic liquidation with the priceOracle calling
-    // liquidate at a certain price
-
     // The liquidationTriggerValue is when the value of the collateral
     // equals mmr percent of the wanted loan
     // Formula: liquidationTriggerValue = (wantedLoan * mmr) / 100
-    const liquidationTriggerValue = natSafeMath.floorDivide(
-      natSafeMath.multiply(wantedLoan, mmr),
-      100,
+    const liquidationTriggerValue = loanMath.make(
+      natSafeMath.floorDivide(natSafeMath.multiply(wantedLoan.value, mmr), 100),
     );
     const debt = wantedLoan;
 
@@ -105,13 +106,16 @@ export const makeBorrowInvitation = (zcf, config) => {
 
     const configWithBorrower = { ...config, getDebt, collateralSeat };
 
-    E(priceOracle)
-      .setWakeup(
-        liquidationTriggerValue,
-        harden({
-          wake: makeLiquidate(zcf, configWithBorrower),
-        }),
-      )
+    const liquidationPromise = E(priceOracle).priceWhenBelow(
+      collateralGiven,
+      liquidationTriggerValue,
+    );
+
+    liquidationPromise
+      .then(({ quoteAmount }) => {
+        const expectedValueOfCollateral = quoteAmount.value[0].price;
+        return liquidate(zcf, configWithBorrower, expectedValueOfCollateral);
+      })
       .catch(err => {
         console.error(
           `Could not schedule automatic liquidation at the liquidationTriggerValue ${liquidationTriggerValue} using this priceOracle ${priceOracle}`,
@@ -120,14 +124,10 @@ export const makeBorrowInvitation = (zcf, config) => {
         throw err;
       });
 
-    // TODO: set up a notifier available to the borrower to know when
-    // their collateral is *actually* getting liquidated (this is not a margin
-    // call, see below)
-    const getLiquidationNotifier = () => {};
-
-    // TODO: allow the borrower to set up notifications at various
-    // prices to automate the margin call process
-    const makeMarginCallNotifier = () => {};
+    // The borrower can set up their own margin calls by getting the
+    // priceOracle from the terms and calling
+    // `E(priceOracle).priceWhenBelow(collateralGiven, x)` where x is
+    // the priceLimit at which they want a reminder to addCollateral.
 
     // TODO: Add ability to liquidate partially
     // TODO: Add ability to withdraw excess collateral
@@ -137,8 +137,7 @@ export const makeBorrowInvitation = (zcf, config) => {
         makeCloseLoanInvitation(zcf, configWithBorrower),
       makeAddCollateralInvitation: () =>
         makeAddCollateralInvitation(zcf, configWithBorrower),
-      makeMarginCallNotifier,
-      getLiquidationNotifier,
+      getLiquidationPromise: () => liquidationPromise,
     });
   };
 

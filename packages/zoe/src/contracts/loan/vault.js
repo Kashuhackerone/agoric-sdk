@@ -6,7 +6,7 @@ import { assert } from '@agoric/assert';
 import { assertIssuerKeywords } from '../../contractSupport';
 import { makeLendInvitation } from './lend';
 import { makeBorrowInvitation } from './borrow';
-import { makeLiquidate } from './liquidate';
+import { liquidate } from './liquidate';
 import { makeCloseLoanInvitation } from './close';
 import { makeAddCollateralInvitation } from './addCollateral';
 
@@ -41,7 +41,7 @@ const start = zcf => {
     priceOracle,
     autoswap,
     makeBorrowInvitation,
-    makeLiquidate,
+    liquidate,
     makeCloseLoanInvitation,
     makeAddCollateralInvitation,
   });
