@@ -12,6 +12,18 @@
   resolved "https://registry.yarnpkg.com/@agoric/babel-standalone/-/babel-standalone-7.9.5.tgz#1ca0c17844924199d31e49d6b67e8b2a629b8599"
   integrity sha512-1Aa23oPuRi4kywUyZODo8zey9Gq2NpD2xUnNvgJLoT8orMQRlVOtvbG3JeHq5sjJERlF/q6csg4/P8t8/5IABA==
 
+"@agoric/compartment-mapper@^0.2.0":
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/@agoric/compartment-mapper/-/compartment-mapper-0.2.0.tgz#f80e8c3eb76fafe16816d099fd45433ce8b22f82"
+  integrity sha512-8KxNUJxfr/tgMNdCxYkx8ZhMZlKV7VknMbaDOqqw6BElFfZVyZe6tFGGyC8wCkqfLcEVZt75gQ+nl0fukXv3RA==
+  dependencies:
+    ses "^0.11.0"
+
+"@agoric/eventual-send@^0.11.1-dev.2":
+  version "0.11.1"
+  resolved "https://registry.yarnpkg.com/@agoric/eventual-send/-/eventual-send-0.11.1.tgz#20d5a28f9ef3871caa1938f32322b5deba8166ea"
+  integrity sha512-zNDvjSzt+5o7uVuU3jpjzanpn4LelWwHJvDVp1ogi/jCWFABW2Q8N7Q2Y9mh8eAk7+oq6PzaW79J/ffYCF1wYg==
+
 "@agoric/make-hardener@^0.1.0":
   version "0.1.1"
   resolved "https://registry.yarnpkg.com/@agoric/make-hardener/-/make-hardener-0.1.1.tgz#9b887da47aeec6637d9db4f0a92a4e740b8262bb"
