@@ -10,10 +10,13 @@ import test from 'ava';
 import { E } from '@agoric/eventual-send';
 
 import { MathKind, makeIssuerKit } from '@agoric/ertp';
-import { makePromiseKit } from '@agoric/promise-kit';
-import { natSafeMath } from '../../../../src/contractSupport';
 
-import { setupLoanUnitTest, makeSeatKit, checkDetails } from './helpers';
+import {
+  setupLoanUnitTest,
+  makeSeatKit,
+  checkDetails,
+  makePriceOracle,
+} from './helpers';
 
 import { makeBorrowInvitation } from '../../../../src/contracts/loan/borrow';
 
@@ -29,33 +32,9 @@ const setupBorrow = async () => {
   );
   const mmr = 150;
 
-  const quoteIssuerKit = makeIssuerKit('quote', MathKind.SET);
-
-  // Hard-code collateral to be 2x as valuable as the loan brand
-  // One unit of collateral = 2 loan tokens.
-
-  const priceBelowPromiseKit = makePromiseKit();
-  const triggerPriceBelow = (assetAmount, price, timer = {}, timestamp = 1) => {
-    const quoteValue = harden([
-      {
-        assetAmount,
-        price,
-        timer,
-        timestamp,
-      },
-    ]);
-    const quoteAmount = quoteIssuerKit.amountMath.make(quoteValue);
-    const quotePayment = quoteIssuerKit.mint.mintPayment(quoteAmount);
-    const quote = harden({ quoteAmount, quotePayment });
-    priceBelowPromiseKit.resolve(quote);
-  };
-
-  const priceOracle = {
-    getInputPrice: (amountIn, _brandOut) => {
-      return loanKit.amountMath.make(natSafeMath.multiply(amountIn.value, 2));
-    },
-    priceWhenLT: (_assetAmount, _priceLimit) => priceBelowPromiseKit.promise,
-  };
+  const { priceOracle, triggerPriceBelow, quoteIssuerKit } = makePriceOracle(
+    loanKit,
+  );
 
   const autoswap = {};
 

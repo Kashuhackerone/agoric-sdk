@@ -4,15 +4,17 @@ import '../../../exported';
 
 import { assert, details } from '@agoric/assert';
 import { E } from '@agoric/eventual-send';
+import { makePromiseKit } from '@agoric/promise-kit';
 
 import { assertProposalShape, trade, natSafeMath } from '../../contractSupport';
+
+import { scheduleLiquidation } from './scheduleLiquidation';
 
 /** @type {MakeBorrowInvitation} */
 export const makeBorrowInvitation = (zcf, config) => {
   const {
     priceOracle,
     mmr,
-    liquidate,
     makeCloseLoanInvitation,
     makeAddCollateralInvitation,
     lenderSeat,
@@ -97,12 +99,6 @@ export const makeBorrowInvitation = (zcf, config) => {
     // that will let them continue to interact with the contract.
     borrowerSeat.exit();
 
-    // The liquidationTriggerValue is when the value of the collateral
-    // equals mmr percent of the wanted loan
-    // Formula: liquidationTriggerValue = (wantedLoan * mmr) / 100
-    const liquidationTriggerValue = loanMath.make(
-      natSafeMath.floorDivide(natSafeMath.multiply(wantedLoan.value, mmr), 100),
-    );
     const debt = wantedLoan;
 
     // TODO: calculate interest
@@ -111,25 +107,24 @@ export const makeBorrowInvitation = (zcf, config) => {
     const getInterest = () => loanMath.getEmpty();
     const getDebt = () => loanMath.add(debt, getInterest());
 
-    const configWithBorrower = { ...config, getDebt, collateralSeat };
-
-    const liquidationPromise = E(priceOracle).priceWhenLT(
-      collateralGiven,
-      liquidationTriggerValue,
+    // The liquidationTriggerValue is when the value of the collateral
+    // equals mmr percent of the wanted loan
+    // Formula: liquidationTriggerValue = (wantedLoan * mmr) / 100
+    const liquidationTriggerValue = loanMath.make(
+      natSafeMath.floorDivide(natSafeMath.multiply(wantedLoan.value, mmr), 100),
     );
 
-    liquidationPromise
-      .then(({ quoteAmount }) => {
-        const expectedValueOfCollateral = quoteAmount.value[0].price;
-        return liquidate(zcf, configWithBorrower, expectedValueOfCollateral);
-      })
-      .catch(err => {
-        console.error(
-          `Could not schedule automatic liquidation at the liquidationTriggerValue ${liquidationTriggerValue} using this priceOracle ${priceOracle}`,
-        );
-        console.error(err);
-        throw err;
-      });
+    const liquidationPromiseKit = makePromiseKit();
+
+    const configWithBorrower = {
+      ...config,
+      getDebt,
+      collateralSeat,
+      liquidationTriggerValue,
+      liquidationPromiseKit,
+    };
+
+    scheduleLiquidation(zcf, configWithBorrower);
 
     // The borrower can set up their own margin calls by getting the
     // priceOracle from the terms and calling
@@ -144,7 +139,7 @@ export const makeBorrowInvitation = (zcf, config) => {
         makeCloseLoanInvitation(zcf, configWithBorrower),
       makeAddCollateralInvitation: () =>
         makeAddCollateralInvitation(zcf, configWithBorrower),
-      getLiquidationPromise: () => liquidationPromise,
+      getLiquidationPromise: () => liquidationPromiseKit.promise,
     });
   };
 

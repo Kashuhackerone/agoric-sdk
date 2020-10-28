@@ -22,6 +22,12 @@
  * @property {ZCFSeat} lenderSeat
  * @property {ZCFSeat} collateralSeat
  * @property {() => Amount} getDebt
+ * @property {Amount} liquidationTriggerValue The value of the
+ * collateral in Loan brand terms, below which liquidation will be
+ * triggered
+ * @property {PromiseKit} liquidationPromiseKit PromiseKit that
+ * includes a promise that resolves to a PriceQuote when liquidation
+ * is triggered
  */
 
 /**
@@ -73,4 +79,10 @@
  * @param {LoanConfigWithBorrower} config
  * @param {Amount} expectedValue
  * @returns {void}
+ */
+
+/**
+ * @callback ScheduleLiquidation
+ * @param {ContractFacet} zcf
+ * @param {LoanConfigWithBorrower} config
  */

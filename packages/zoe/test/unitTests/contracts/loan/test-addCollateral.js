@@ -15,6 +15,7 @@ import {
   makeSeatKit,
   checkDescription,
   checkPayouts,
+  makePriceOracle,
 } from './helpers';
 
 test.todo('makeAddCollateralInvitation - test bad proposal');
@@ -33,7 +34,9 @@ test('makeAddCollateralInvitation', async t => {
     },
   );
 
-  const config = { collateralSeat };
+  const { priceOracle } = makePriceOracle(loanKit);
+
+  const config = { collateralSeat, priceOracle };
   const addCollateralInvitation = makeAddCollateralInvitation(zcf, config);
 
   await checkDescription(t, zoe, addCollateralInvitation, 'addCollateral');

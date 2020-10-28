@@ -5,6 +5,10 @@ import '@agoric/install-ses';
 import { E } from '@agoric/eventual-send';
 import bundleSource from '@agoric/bundle-source';
 
+import { makeIssuerKit, MathKind } from '@agoric/ertp';
+import { makePromiseKit } from '@agoric/promise-kit';
+import { natSafeMath } from '../../../../src/contractSupport';
+
 import { setup } from '../../setupBasicMints';
 import { setupZCFTest } from '../../zcf/setupZcfTest';
 
@@ -164,4 +168,40 @@ export const makeSeatKit = async (zcf, proposal, payments) => {
     harden(payments),
   );
   return harden({ zcfSeat, userSeat });
+};
+
+export const makePriceOracle = loanKit => {
+  const quoteIssuerKit = makeIssuerKit('quote', MathKind.SET);
+
+  // Hard-code collateral to be 2x as valuable as the loan brand
+  // One unit of collateral = 2 loan tokens.
+
+  const priceBelowPromiseKit = makePromiseKit();
+  const triggerPriceBelow = (assetAmount, price, timer = {}, timestamp = 1) => {
+    const quoteValue = harden([
+      {
+        assetAmount,
+        price,
+        timer,
+        timestamp,
+      },
+    ]);
+    const quoteAmount = quoteIssuerKit.amountMath.make(quoteValue);
+    const quotePayment = quoteIssuerKit.mint.mintPayment(quoteAmount);
+    const quote = harden({ quoteAmount, quotePayment });
+    priceBelowPromiseKit.resolve(quote);
+  };
+
+  const priceOracle = {
+    getInputPrice: (amountIn, _brandOut) => {
+      return loanKit.amountMath.make(natSafeMath.multiply(amountIn.value, 2));
+    },
+    priceWhenLT: (_assetAmount, _priceLimit) => priceBelowPromiseKit.promise,
+  };
+
+  return harden({
+    priceOracle,
+    triggerPriceBelow,
+    quoteIssuerKit,
+  });
 };
