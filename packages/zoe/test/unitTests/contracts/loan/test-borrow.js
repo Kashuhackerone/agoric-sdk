@@ -9,8 +9,6 @@ import test from 'ava';
 
 import { E } from '@agoric/eventual-send';
 
-import { MathKind, makeIssuerKit } from '@agoric/ertp';
-
 import {
   setupLoanUnitTest,
   makeSeatKit,
