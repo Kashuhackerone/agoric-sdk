@@ -17,6 +17,9 @@ export const makeBorrowInvitation = (zcf, config) => {
     makeAddCollateralInvitation,
     lenderSeat,
   } = config;
+
+  const maxLoan = lenderSeat.getAmountAllocated('Loan');
+
   /** @type {OfferHandler} */
   const borrow = async borrowerSeat => {
     assertProposalShape(borrowerSeat, {
@@ -38,8 +41,6 @@ export const makeBorrowInvitation = (zcf, config) => {
     // AWAIT ///
 
     // formula: assert collateralValue*100 >= wantedLoan*mmr
-    // TODO: assess for rounding errors
-
     const approxForMsg = loanMath.make(
       natSafeMath.floorDivide(natSafeMath.multiply(wantedLoan.value, mmr), 100),
     );
@@ -60,6 +61,12 @@ export const makeBorrowInvitation = (zcf, config) => {
         borrowerSeat.getAmountAllocated('Collateral'),
       ),
       `The collateral allocated changed during the borrow step, which should not have been possible`,
+    );
+
+    // Assert that wantedLoan <= maxLoan
+    assert(
+      loanMath.isGTE(maxLoan, wantedLoan),
+      details`The wanted loan ${wantedLoan} must be below or equal to the maximum possible loan ${maxLoan}`,
     );
 
     const { zcfSeat: collateralSeat } = zcf.makeEmptySeatKit();
@@ -141,9 +148,7 @@ export const makeBorrowInvitation = (zcf, config) => {
     });
   };
 
-  const customBorrowProps = harden({
-    maxLoan: lenderSeat.getAmountAllocated('Loan'),
-  });
+  const customBorrowProps = harden({ maxLoan });
 
   return zcf.makeInvitation(borrow, 'borrow', customBorrowProps);
 };

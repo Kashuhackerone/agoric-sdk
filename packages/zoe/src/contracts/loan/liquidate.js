@@ -39,21 +39,36 @@ export const liquidate = async (zcf, config, expectedValue) => {
   const payments = harden({ In: collateralPayment });
 
   const swapInvitation = E(autoswap).makeSwapInInvitation();
-  const autoswapSeat = E(zoeService).offer(swapInvitation, proposal, payments);
+  const autoswapUserSeat = E(zoeService).offer(
+    swapInvitation,
+    proposal,
+    payments,
+  );
 
-  const collateralPayout = await E(autoswapSeat).getPayout('In');
-  const loanPayout = await E(autoswapSeat).getPayout('Out');
+  /**
+   * @param {{ Out: Promise<Payment>; In: Promise<Payment>; }} payouts
+   */
+  const handlePayoutsAndShutdown = async payouts => {
+    const { Out: loanPayout, In: collateralPayout } = payouts;
+    const { Out: loanAmount, In: collateralAmount } = await E(
+      autoswapUserSeat,
+    ).getCurrentAllocation();
+    // AWAIT ///
+    const amounts = harden({
+      Collateral: collateralAmount,
+      Loan: loanAmount,
+    });
+    const payoutPayments = harden({
+      Collateral: collateralPayout,
+      Loan: loanPayout,
+    });
+    await depositToSeat(zcf, lenderSeat, amounts, payoutPayments);
+    lenderSeat.exit();
+    collateralSeat.exit();
+    zcf.shutdown('your loan had to be liquidated');
+  };
 
-  const allocation = await E(autoswapSeat).getCurrentAllocation();
-
-  const amounts = harden({ Loan: allocation.Out, Collateral: allocation.In });
-
-  await depositToSeat(zcf, lenderSeat, amounts, {
-    Collateral: collateralPayout,
-    Loan: loanPayout,
-  });
-
-  lenderSeat.exit();
-  collateralSeat.exit();
-  zcf.shutdown('your loan had to be liquidated');
+  return E(autoswapUserSeat)
+    .getPayouts()
+    .then(handlePayoutsAndShutdown);
 };
