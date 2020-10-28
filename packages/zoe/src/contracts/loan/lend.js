@@ -29,7 +29,7 @@ export const makeLendInvitation = (zcf, config) => {
     assertProposalShape(lenderSeat, {
       want: {}, // No return can be guaranteed.
       give: { Loan: null },
-      exit: { onDemand: null }, // The lender must be able to exit with their loan at any time before borrowing
+      exit: { onDemand: null }, // The lender must be able to exit with their loan at any time before the money is borrowed
     });
 
     const { makeBorrowInvitation } = config;
