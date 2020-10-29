@@ -14,34 +14,34 @@ import {
   makeSeatKit,
   checkDetails,
   makePriceOracle,
+  performAddCollateral,
+  checkNoNewOffers,
 } from './helpers';
 
 import { makeBorrowInvitation } from '../../../../src/contracts/loan/borrow';
+
+import { makeAddCollateralInvitation } from '../../../../src/contracts/loan/addCollateral';
 
 const setupBorrow = async () => {
   const setup = await setupLoanUnitTest();
   const { zcf, loanKit } = setup;
   // Set up the lender seat
   const maxLoan = loanKit.amountMath.make(100);
-  const { zcfSeat: lenderSeat } = await makeSeatKit(
+  const { zcfSeat: lenderSeat, userSeat: lenderUserSeat } = await makeSeatKit(
     zcf,
     { give: { Loan: maxLoan } },
     { Loan: loanKit.mint.mintPayment(maxLoan) },
   );
   const mmr = 150;
 
-  const { priceOracle, triggerPriceBelow, quoteIssuerKit } = makePriceOracle(
-    loanKit,
-  );
+  const { priceOracle, adminTestingFacet } = makePriceOracle(loanKit);
 
   const autoswap = {};
 
-  const liquidate = (_zcf, _config, expectedValue) => expectedValue;
+  let liquidated = false;
+  const liquidate = (_zcf, _config, _expectedValue) => (liquidated = true);
 
   const makeCloseLoanInvitation = (_zcf, _config) => 'closeLoanInvitation';
-
-  const makeAddCollateralInvitation = (_zcf, _config) =>
-    'addCollateralInvitation';
 
   const config = {
     lenderSeat,
@@ -57,8 +57,9 @@ const setupBorrow = async () => {
     ...setup,
     borrowInvitation,
     maxLoan,
-    triggerPriceBelow,
-    quoteIssuerKit,
+    adminTestingFacet,
+    lenderUserSeat,
+    liquidated,
   };
 };
 
@@ -135,8 +136,7 @@ test('borrow makeAddCollateralInvitation', async t => {
 test('borrow getLiquidationPromise', async t => {
   const {
     borrowFacet,
-    triggerPriceBelow,
-    quoteIssuerKit,
+    adminTestingFacet,
     collateralKit,
     loanKit,
   } = await setupBorrowFacet(100);
@@ -144,9 +144,16 @@ test('borrow getLiquidationPromise', async t => {
 
   const collateralGiven = collateralKit.amountMath.make(100);
   const liquidationTriggerValue = loanKit.amountMath.make(150);
-  triggerPriceBelow(collateralGiven, liquidationTriggerValue);
+  const {
+    getPriceBelowPromiseKitEntries,
+    resolvePromiseKitEntry,
+    quoteIssuerKit,
+  } = adminTestingFacet;
+  const priceBelowPromiseKitEntries = getPriceBelowPromiseKitEntries();
+  resolvePromiseKitEntry(priceBelowPromiseKitEntries[0], {}, 1);
   const { quoteAmount, quotePayment } = await liquidationPromise;
   const quoteAmount2 = await E(quoteIssuerKit.issuer).getAmountOf(quotePayment);
+
   t.deepEqual(quoteAmount, quoteAmount2);
   t.deepEqual(
     quoteAmount,
@@ -162,4 +169,71 @@ test('borrow getLiquidationPromise', async t => {
     ),
   );
 });
+
+// Liquidation should not happen at the old assetAmount, but should
+// happen at the new assetAmount
+test.only('borrow, then addCollateral, then getLiquidationPromise', async t => {
+  const {
+    borrowFacet,
+    collateralKit,
+    loanKit,
+    zoe,
+    zcf,
+    adminTestingFacet,
+    lenderUserSeat,
+    liquidated,
+  } = await setupBorrowFacet(100);
+  const liquidationPromise = E(borrowFacet).getLiquidationPromise();
+
+  const addCollateralInvitation = await E(
+    borrowFacet,
+  ).makeAddCollateralInvitation();
+
+  console.log(addCollateralInvitation);
+
+  const addedAmount = collateralKit.amountMath.make(3);
+
+  await performAddCollateral(
+    t,
+    zoe,
+    collateralKit,
+    loanKit,
+    addCollateralInvitation,
+    addedAmount,
+  );
+
+  const collateralGiven = collateralKit.amountMath.make(103);
+  const liquidationTriggerValue = loanKit.amountMath.make(150);
+
+  const {
+    getPriceBelowPromiseKitEntries,
+    resolvePromiseKitEntry,
+    quoteIssuerKit,
+  } = adminTestingFacet;
+  const priceBelowPromiseKitEntries = getPriceBelowPromiseKitEntries();
+  t.is(priceBelowPromiseKitEntries.length, 2);
+  resolvePromiseKitEntry(priceBelowPromiseKitEntries[0], {}, 1);
+  resolvePromiseKitEntry(priceBelowPromiseKitEntries[1], {}, 2);
+
+  const { quoteAmount, quotePayment } = await liquidationPromise;
+  const quoteAmount2 = await E(quoteIssuerKit.issuer).getAmountOf(quotePayment);
+
+  t.deepEqual(quoteAmount, quoteAmount2);
+  t.deepEqual(
+    quoteAmount,
+    quoteIssuerKit.amountMath.make(
+      harden([
+        {
+          assetAmount: collateralGiven,
+          price: liquidationTriggerValue,
+          timer: {},
+          timestamp: 2,
+        },
+      ]),
+    ),
+  );
+
+  t.falsy(liquidated);
+});
+
 test.todo('borrow bad proposal');

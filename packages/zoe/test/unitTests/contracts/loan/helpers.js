@@ -6,6 +6,7 @@ import { E } from '@agoric/eventual-send';
 import bundleSource from '@agoric/bundle-source';
 
 import { makeIssuerKit, MathKind } from '@agoric/ertp';
+import { makeStore } from '@agoric/store';
 import { makePromiseKit } from '@agoric/promise-kit';
 import { natSafeMath } from '../../../../src/contractSupport';
 
@@ -173,11 +174,11 @@ export const makeSeatKit = async (zcf, proposal, payments) => {
 export const makePriceOracle = loanKit => {
   const quoteIssuerKit = makeIssuerKit('quote', MathKind.SET);
 
-  // Hard-code collateral to be 2x as valuable as the loan brand
-  // One unit of collateral = 2 loan tokens.
+  // array of objects with { assetAmount, priceLimit, promiseKit }
+  const priceBelowPromiseKitEntries = [];
 
-  const priceBelowPromiseKit = makePromiseKit();
-  const triggerPriceBelow = (assetAmount, price, timer = {}, timestamp = 1) => {
+  const resolvePromiseKitEntry = (promiseKitEntry, timer, timestamp) => {
+    const { assetAmount, priceLimit: price, promiseKit } = promiseKitEntry;
     const quoteValue = harden([
       {
         assetAmount,
@@ -189,19 +190,77 @@ export const makePriceOracle = loanKit => {
     const quoteAmount = quoteIssuerKit.amountMath.make(quoteValue);
     const quotePayment = quoteIssuerKit.mint.mintPayment(quoteAmount);
     const quote = harden({ quoteAmount, quotePayment });
-    priceBelowPromiseKit.resolve(quote);
+    promiseKit.resolve(quote);
+  };
+
+  const adminTestingFacet = {
+    getPriceBelowPromiseKitEntries: () => priceBelowPromiseKitEntries,
+    resolvePromiseKitEntry,
+    quoteIssuerKit,
   };
 
   const priceOracle = {
     getInputPrice: (amountIn, _brandOut) => {
       return loanKit.amountMath.make(natSafeMath.multiply(amountIn.value, 2));
     },
-    priceWhenLT: (_assetAmount, _priceLimit) => priceBelowPromiseKit.promise,
+    priceWhenLT: (assetAmount, priceLimit) => {
+      const promiseKit = makePromiseKit();
+      priceBelowPromiseKitEntries.push(
+        harden({ assetAmount, priceLimit, promiseKit }),
+      );
+      return promiseKit.promise;
+    },
+    getQuoteIssuer: quoteIssuerKit.issuer,
   };
 
   return harden({
     priceOracle,
-    triggerPriceBelow,
-    quoteIssuerKit,
+    adminTestingFacet,
   });
+};
+
+/**
+ * @callback PerformAddCollateral
+ * @param {import("ava").ExecutionContext<unknown>} t
+ * @param {ZoeService} zoe
+ * @param {IssuerKit} collateralKit
+ * @param {IssuerKit} loanKit
+ * @param {ERef<Payment>} addCollateralInvitation
+ * @param {Amount} addedAmount amount of collateral to add
+ */
+export const performAddCollateral = async (
+  t,
+  zoe,
+  collateralKit,
+  loanKit,
+  addCollateralInvitation,
+  addedAmount,
+) => {
+  await checkDescription(t, zoe, addCollateralInvitation, 'addCollateral');
+
+  const proposal = harden({
+    give: { Collateral: addedAmount },
+  });
+
+  const payments = harden({
+    Collateral: collateralKit.mint.mintPayment(addedAmount),
+  });
+
+  const seat = await E(zoe).offer(addCollateralInvitation, proposal, payments);
+
+  t.is(
+    await seat.getOfferResult(),
+    'a warm fuzzy feeling that you are further away from default than ever before',
+  );
+
+  await checkPayouts(
+    t,
+    seat,
+    { Loan: loanKit, Collateral: collateralKit },
+    {
+      Loan: loanKit.amountMath.getEmpty(),
+      Collateral: collateralKit.amountMath.getEmpty(),
+    },
+    'addCollateralSeat',
+  );
 };
