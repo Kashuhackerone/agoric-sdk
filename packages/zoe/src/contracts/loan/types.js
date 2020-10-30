@@ -7,6 +7,8 @@
  * @property {Liquidate} liquidate
  * @property {MakeCloseLoanInvitation} makeCloseLoanInvitation
  * @property {MakeAddCollateralInvitation} makeAddCollateralInvitation
+ * @property {Promise<Promise>} periodPromise
+ * @property {number} interestRate
  *
  * The beginning configuration for a loan before a lender or
  * collateral has been added.
@@ -85,4 +87,25 @@
  * @callback ScheduleLiquidation
  * @param {ContractFacet} zcf
  * @param {LoanConfigWithBorrower} config
+ */
+
+/**
+ * @callback MakeDebtCalculator
+ * @param {DebtCalculatorConfig} debtCalculatorConfig
+ */
+
+/**
+ * @callback CalcInterestFn
+ * @param {number} oldDebtValue
+ * @param {number} interestRate
+ * @returns {number} interest
+ */
+
+/**
+ * @typedef {Object} DebtCalculatorConfig
+ * @property {CalcInterestFn} calcInterestFn
+ * @property {Amount} originalDebt
+ * @property {AmountMath} debtMath
+ * @property {Promise<Promise>} periodPromise
+ * @property {number} interestRate
  */

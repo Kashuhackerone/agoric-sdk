@@ -32,19 +32,25 @@ const start = zcf => {
     mmr = 150, // Maintenance Margin Requirement
     priceOracle,
     autoswap,
+    periodPromise,
+    interestRate,
   } = zcf.getTerms();
   assert(priceOracle, `priceOracle must be provided`);
   assert(autoswap, `an autoswap instance must be provided`);
 
-  const config = harden({
+  /** @type {LoanConfig} */
+  const config = {
     mmr,
     priceOracle,
     autoswap,
     makeBorrowInvitation,
     liquidate,
+    periodPromise,
+    interestRate,
     makeCloseLoanInvitation,
     makeAddCollateralInvitation,
-  });
+  };
+  harden(config);
 
   const creatorInvitation = makeLendInvitation(zcf, config);
 

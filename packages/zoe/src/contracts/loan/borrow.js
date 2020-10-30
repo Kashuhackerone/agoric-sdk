@@ -9,6 +9,7 @@ import { makePromiseKit } from '@agoric/promise-kit';
 import { assertProposalShape, trade, natSafeMath } from '../../contractSupport';
 
 import { scheduleLiquidation } from './scheduleLiquidation';
+import { calculateInterest, makeDebtCalculator } from './updateDebt';
 
 /** @type {MakeBorrowInvitation} */
 export const makeBorrowInvitation = (zcf, config) => {
@@ -18,6 +19,8 @@ export const makeBorrowInvitation = (zcf, config) => {
     makeCloseLoanInvitation,
     makeAddCollateralInvitation,
     lenderSeat,
+    periodPromise,
+    interestRate,
   } = config;
 
   const maxLoan = lenderSeat.getAmountAllocated('Loan');
@@ -99,13 +102,14 @@ export const makeBorrowInvitation = (zcf, config) => {
     // that will let them continue to interact with the contract.
     borrowerSeat.exit();
 
-    const debt = wantedLoan;
-
-    // TODO: calculate interest
-    // QUESTION: how is interest (aka stability fee on Maker) calculated?
-    // Maker calculates on every block?
-    const getInterest = () => loanMath.getEmpty();
-    const getDebt = () => loanMath.add(debt, getInterest());
+    const debtCalculatorConfig = {
+      calcInterestFn: calculateInterest,
+      originalDebt: wantedLoan,
+      debtMath: loanMath,
+      periodPromise,
+      interestRate,
+    };
+    const { getDebt } = makeDebtCalculator(harden(debtCalculatorConfig));
 
     // The liquidationTriggerValue is when the value of the collateral
     // equals mmr percent of the wanted loan

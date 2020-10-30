@@ -8,6 +8,7 @@ import '@agoric/install-ses';
 import test from 'ava';
 
 import { E } from '@agoric/eventual-send';
+import { makePromiseKit } from '@agoric/promise-kit';
 
 import {
   setupLoanUnitTest,
@@ -15,7 +16,7 @@ import {
   checkDetails,
   makePriceOracle,
   performAddCollateral,
-  checkNoNewOffers,
+  checkDescription,
 } from './helpers';
 
 import { makeBorrowInvitation } from '../../../../src/contracts/loan/borrow';
@@ -43,6 +44,12 @@ const setupBorrow = async () => {
 
   const makeCloseLoanInvitation = (_zcf, _config) => 'closeLoanInvitation';
 
+  const periodPromiseKit = makePromiseKit();
+
+  const periodPromise = periodPromiseKit.promise;
+
+  const interestRate = 5;
+
   const config = {
     lenderSeat,
     mmr,
@@ -51,6 +58,8 @@ const setupBorrow = async () => {
     liquidate,
     makeCloseLoanInvitation,
     makeAddCollateralInvitation,
+    periodPromise,
+    interestRate,
   };
   const borrowInvitation = makeBorrowInvitation(zcf, config);
   return {
@@ -60,6 +69,7 @@ const setupBorrow = async () => {
     adminTestingFacet,
     lenderUserSeat,
     liquidated,
+    periodPromiseKit,
   };
 };
 
@@ -126,11 +136,11 @@ test('borrow makeCloseLoanInvitation', async t => {
 });
 
 test('borrow makeAddCollateralInvitation', async t => {
-  const { borrowFacet } = await setupBorrowFacet();
+  const { borrowFacet, zoe } = await setupBorrowFacet();
   const addCollateralInvitation = await E(
     borrowFacet,
   ).makeAddCollateralInvitation();
-  t.is(addCollateralInvitation, 'addCollateralInvitation');
+  await checkDescription(t, zoe, addCollateralInvitation, 'addCollateral');
 });
 
 test('borrow getLiquidationPromise', async t => {
@@ -172,15 +182,13 @@ test('borrow getLiquidationPromise', async t => {
 
 // Liquidation should not happen at the old assetAmount, but should
 // happen at the new assetAmount
-test.only('borrow, then addCollateral, then getLiquidationPromise', async t => {
+test('borrow, then addCollateral, then getLiquidationPromise', async t => {
   const {
     borrowFacet,
     collateralKit,
     loanKit,
     zoe,
-    zcf,
     adminTestingFacet,
-    lenderUserSeat,
     liquidated,
   } = await setupBorrowFacet(100);
   const liquidationPromise = E(borrowFacet).getLiquidationPromise();
@@ -237,3 +245,7 @@ test.only('borrow, then addCollateral, then getLiquidationPromise', async t => {
 });
 
 test.todo('borrow bad proposal');
+
+test.todo('resolve periodPromise a few times and test interest');
+
+test.todo('test interest calculations as unit test');
