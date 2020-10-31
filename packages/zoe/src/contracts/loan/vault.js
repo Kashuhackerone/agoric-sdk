@@ -32,7 +32,7 @@ const start = zcf => {
     mmr = 150, // Maintenance Margin Requirement
     priceOracle,
     autoswap,
-    periodPromise,
+    periodAsyncIterable,
     interestRate,
   } = zcf.getTerms();
   assert(priceOracle, `priceOracle must be provided`);
@@ -45,7 +45,7 @@ const start = zcf => {
     autoswap,
     makeBorrowInvitation,
     liquidate,
-    periodPromise,
+    periodAsyncIterable,
     interestRate,
     makeCloseLoanInvitation,
     makeAddCollateralInvitation,

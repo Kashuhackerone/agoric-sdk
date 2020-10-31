@@ -7,8 +7,9 @@ import '@agoric/install-ses';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import test from 'ava';
 
+import { updateFromIterable } from '@agoric/notifier';
 import { E } from '@agoric/eventual-send';
-import { makePromiseKit } from '@agoric/promise-kit';
+import { makeAsyncIterableKit } from './asyncIterableKit';
 
 import {
   setupLoanUnitTest,
@@ -22,12 +23,13 @@ import {
 import { makeBorrowInvitation } from '../../../../src/contracts/loan/borrow';
 
 import { makeAddCollateralInvitation } from '../../../../src/contracts/loan/addCollateral';
+import { makeCloseLoanInvitation } from '../../../../src/contracts/loan/close';
 
-const setupBorrow = async () => {
+const setupBorrow = async (maxLoanValue = 100) => {
   const setup = await setupLoanUnitTest();
   const { zcf, loanKit } = setup;
   // Set up the lender seat
-  const maxLoan = loanKit.amountMath.make(100);
+  const maxLoan = loanKit.amountMath.make(maxLoanValue);
   const { zcfSeat: lenderSeat, userSeat: lenderUserSeat } = await makeSeatKit(
     zcf,
     { give: { Loan: maxLoan } },
@@ -42,11 +44,10 @@ const setupBorrow = async () => {
   let liquidated = false;
   const liquidate = (_zcf, _config, _expectedValue) => (liquidated = true);
 
-  const makeCloseLoanInvitation = (_zcf, _config) => 'closeLoanInvitation';
-
-  const periodPromiseKit = makePromiseKit();
-
-  const periodPromise = periodPromiseKit.promise;
+  const {
+    updater: periodUpdater,
+    asyncIterable: periodAsyncIterable,
+  } = makeAsyncIterableKit();
 
   const interestRate = 5;
 
@@ -58,7 +59,7 @@ const setupBorrow = async () => {
     liquidate,
     makeCloseLoanInvitation,
     makeAddCollateralInvitation,
-    periodPromise,
+    periodAsyncIterable,
     interestRate,
   };
   const borrowInvitation = makeBorrowInvitation(zcf, config);
@@ -69,12 +70,13 @@ const setupBorrow = async () => {
     adminTestingFacet,
     lenderUserSeat,
     liquidated,
-    periodPromiseKit,
+    periodUpdater,
+    periodAsyncIterable,
   };
 };
 
-const setupBorrowFacet = async (collateralValue = 1000) => {
-  const setup = await setupBorrow();
+const setupBorrowFacet = async (collateralValue = 1000, maxLoanValue = 100) => {
+  const setup = await setupBorrow(maxLoanValue);
   const { borrowInvitation, zoe, maxLoan, collateralKit } = setup;
 
   const collateral = collateralKit.amountMath.make(collateralValue);
@@ -115,8 +117,7 @@ test('borrow assert customProps', async t => {
 
 test('borrow not enough collateral', async t => {
   // collateral is 0
-  const setup = await setupBorrowFacet(0);
-  const { borrowSeat } = setup;
+  const { borrowSeat } = await setupBorrowFacet(0);
   await t.throwsAsync(() => E(borrowSeat).getOfferResult(), {
     message:
       'The required margin is approximately (an object) but collateral only had value of (an object)',
@@ -124,15 +125,15 @@ test('borrow not enough collateral', async t => {
 });
 
 test('borrow just enough collateral', async t => {
-  const { borrowFacet } = await setupBorrowFacet(75);
+  const { borrowFacet, zoe } = await setupBorrowFacet(75);
   const closeLoanInvitation = await E(borrowFacet).makeCloseLoanInvitation();
-  t.is(closeLoanInvitation, 'closeLoanInvitation');
+  await checkDescription(t, zoe, closeLoanInvitation, 'repayAndClose');
 });
 
 test('borrow makeCloseLoanInvitation', async t => {
-  const { borrowFacet } = await setupBorrowFacet();
+  const { borrowFacet, zoe } = await setupBorrowFacet();
   const closeLoanInvitation = await E(borrowFacet).makeCloseLoanInvitation();
-  t.is(closeLoanInvitation, 'closeLoanInvitation');
+  await checkDescription(t, zoe, closeLoanInvitation, 'repayAndClose');
 });
 
 test('borrow makeAddCollateralInvitation', async t => {
@@ -141,6 +142,12 @@ test('borrow makeAddCollateralInvitation', async t => {
     borrowFacet,
   ).makeAddCollateralInvitation();
   await checkDescription(t, zoe, addCollateralInvitation, 'addCollateral');
+});
+
+test('borrow getDebt', async t => {
+  const { borrowFacet, maxLoan } = await setupBorrowFacet();
+  const currentDebt = await E(borrowFacet).getDebt();
+  t.deepEqual(currentDebt, maxLoan);
 });
 
 test('borrow getLiquidationPromise', async t => {
@@ -244,8 +251,48 @@ test('borrow, then addCollateral, then getLiquidationPromise', async t => {
   t.falsy(liquidated);
 });
 
-test.todo('borrow bad proposal');
+test.only('getDebt with interest', async t => {
+  const {
+    borrowFacet,
+    maxLoan,
+    periodUpdater,
+    zoe,
+    collateralKit,
+    loanKit,
+  } = await setupBorrowFacet(100000, 40000);
+  const originalDebt = await E(borrowFacet).getDebt();
+  t.deepEqual(originalDebt, maxLoan);
 
-test.todo('resolve periodPromise a few times and test interest');
+  periodUpdater.updateState();
+
+  const debtCompounded1 = await E(borrowFacet).getDebt();
+  t.deepEqual(debtCompounded1, loanKit.amountMath.make(40020));
+
+  periodUpdater.updateState();
+
+  const debtCompounded2 = await E(borrowFacet).getDebt();
+  t.deepEqual(debtCompounded2, loanKit.amountMath.make(40040));
+
+  const closeLoanInvitation = E(borrowFacet).makeCloseLoanInvitation();
+  await checkDescription(t, zoe, closeLoanInvitation, 'repayAndClose');
+
+  const proposal = harden({
+    give: { Loan: loanKit.amountMath.make(40000) },
+    want: { Collateral: collateralKit.amountMath.make(10) },
+  });
+
+  const payments = harden({
+    Loan: loanKit.mint.mintPayment(loanKit.amountMath.make(40000)),
+  });
+
+  const seat = await E(zoe).offer(closeLoanInvitation, proposal, payments);
+
+  await t.throwsAsync(() => seat.getOfferResult(), {
+    message:
+      'Not enough Loan assets have been repaid.  (an object) is required, but only (an object) was repaid.',
+  });
+});
+
+test.todo('borrow bad proposal');
 
 test.todo('test interest calculations as unit test');

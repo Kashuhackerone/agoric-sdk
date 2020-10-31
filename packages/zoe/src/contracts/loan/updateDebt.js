@@ -1,8 +1,8 @@
 // @ts-check
 
 import '../../../exported';
+import { updateFromIterable } from '@agoric/notifier';
 
-import { E } from '@agoric/eventual-send';
 import { natSafeMath } from '../../contractSupport';
 
 // Update the debt by adding the new interest on every period, as
@@ -29,22 +29,28 @@ export const makeDebtCalculator = debtCalculatorConfig => {
     calcInterestFn = calculateInterest,
     originalDebt,
     debtMath,
-    periodPromise,
+    periodAsyncIterable,
     interestRate,
   } = debtCalculatorConfig;
   let debt = originalDebt;
 
-  const updateDebt = newPeriodPromise => {
+  const updateDebt = _state => {
     const interest = debtMath.make(calcInterestFn(debt.value, interestRate));
     debt = debtMath.add(debt, interest);
-
-    // Debt will continue to get updated for as long as the
-    // periodPromise resolves to a newPeriodPromise
-    E(newPeriodPromise).then(updateDebt);
   };
 
-  // Register the initial update of the debt.
-  E(periodPromise).then(updateDebt);
+  /** @type {Updater<undefined>} */
+  const debtUpdater = {
+    // Debt is updated with interest every time the
+    // periodAsyncIterable pushes another value
+    updateState: updateDebt,
+    finish: updateDebt,
+    fail: reason => {
+      throw Error(reason);
+    },
+  };
+  harden(debtUpdater);
+  updateFromIterable(debtUpdater, periodAsyncIterable);
 
   return harden({
     getDebt: () => debt,

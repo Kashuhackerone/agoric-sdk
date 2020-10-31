@@ -19,7 +19,7 @@ export const makeBorrowInvitation = (zcf, config) => {
     makeCloseLoanInvitation,
     makeAddCollateralInvitation,
     lenderSeat,
-    periodPromise,
+    periodAsyncIterable,
     interestRate,
   } = config;
 
@@ -106,7 +106,7 @@ export const makeBorrowInvitation = (zcf, config) => {
       calcInterestFn: calculateInterest,
       originalDebt: wantedLoan,
       debtMath: loanMath,
-      periodPromise,
+      periodAsyncIterable,
       interestRate,
     };
     const { getDebt } = makeDebtCalculator(harden(debtCalculatorConfig));
@@ -138,13 +138,21 @@ export const makeBorrowInvitation = (zcf, config) => {
     // TODO: Add ability to liquidate partially
     // TODO: Add ability to withdraw excess collateral
     // TODO: Add ability to repay partially
-    return harden({
+
+    /** @type {BorrowFacet} */
+    const borrowFacet = {
       makeCloseLoanInvitation: () =>
         makeCloseLoanInvitation(zcf, configWithBorrower),
       makeAddCollateralInvitation: () =>
         makeAddCollateralInvitation(zcf, configWithBorrower),
       getLiquidationPromise: () => liquidationPromiseKit.promise,
-    });
+      getDebt: () => {
+        console.log('getDebt called');
+        return getDebt();
+      },
+    };
+
+    return harden(borrowFacet);
   };
 
   const customBorrowProps = harden({ maxLoan });

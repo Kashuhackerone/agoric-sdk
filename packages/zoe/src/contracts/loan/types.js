@@ -7,7 +7,7 @@
  * @property {Liquidate} liquidate
  * @property {MakeCloseLoanInvitation} makeCloseLoanInvitation
  * @property {MakeAddCollateralInvitation} makeAddCollateralInvitation
- * @property {Promise<Promise>} periodPromise
+ * @property {AsyncIterable} periodAsyncIterable
  * @property {number} interestRate
  *
  * The beginning configuration for a loan before a lender or
@@ -106,6 +106,27 @@
  * @property {CalcInterestFn} calcInterestFn
  * @property {Amount} originalDebt
  * @property {AmountMath} debtMath
- * @property {Promise<Promise>} periodPromise
+ * @property {AsyncIterable} periodAsyncIterable
  * @property {number} interestRate
+ */
+
+/**
+ * @typedef {Object} BorrowFacet
+ * @property {() => Promise<Invitation>} makeCloseLoanInvitation
+ *
+ * Make an invitation to close the loan by repaying the debt
+ * (including interest).
+ * @property {() => Promise<Invitation>} makeAddCollateralInvitation
+ *
+ * Make an invitation to add collateral to protect against liquidation
+ *
+ *
+ * @property {() => Promise} getLiquidationPromise
+ *
+ * Get a promise that will resolve if liquidation occurs
+ *
+ * @property {() => Amount} getDebt
+ *
+ * Get the current debt (an Amount in the Loan Brand). This will
+ * change over time as interest is added.
  */
