@@ -1,7 +1,7 @@
 // @ts-check
 
 import '../../../exported';
-import { updateFromIterable } from '@agoric/notifier';
+import { makeNotifierKit, updateFromIterable } from '@agoric/notifier';
 
 import { natSafeMath } from '../../contractSupport';
 
@@ -34,9 +34,15 @@ export const makeDebtCalculator = debtCalculatorConfig => {
   } = debtCalculatorConfig;
   let debt = originalDebt;
 
+  const {
+    updater: debtNotifierUpdater,
+    notifier: debtNotifier,
+  } = makeNotifierKit();
+
   const updateDebt = _state => {
     const interest = debtMath.make(calcInterestFn(debt.value, interestRate));
     debt = debtMath.add(debt, interest);
+    debtNotifierUpdater.updateState(debt);
   };
 
   /** @type {Updater<undefined>} */
@@ -46,13 +52,18 @@ export const makeDebtCalculator = debtCalculatorConfig => {
     updateState: updateDebt,
     finish: updateDebt,
     fail: reason => {
+      debtNotifierUpdater.fail(reason);
       throw Error(reason);
     },
   };
   harden(debtUpdater);
+
+  // Initialize
   updateFromIterable(debtUpdater, periodAsyncIterable);
+  debtNotifierUpdater.updateState(debt);
 
   return harden({
     getDebt: () => debt,
+    getDebtNotifier: () => debtNotifier,
   });
 };

@@ -112,21 +112,22 @@
 
 /**
  * @typedef {Object} BorrowFacet
+ *
  * @property {() => Promise<Invitation>} makeCloseLoanInvitation
  *
  * Make an invitation to close the loan by repaying the debt
- * (including interest).
+ *   (including interest).
+ *
  * @property {() => Promise<Invitation>} makeAddCollateralInvitation
  *
  * Make an invitation to add collateral to protect against liquidation
- *
  *
  * @property {() => Promise} getLiquidationPromise
  *
  * Get a promise that will resolve if liquidation occurs
  *
- * @property {() => Amount} getDebt
+ * @property {() => Notifier<Amount>} getDebtNotifier
  *
- * Get the current debt (an Amount in the Loan Brand). This will
- * change over time as interest is added.
+ * Get notified when the current debt (an Amount in the Loan Brand) changes. This will
+ * increase as interest is added.
  */

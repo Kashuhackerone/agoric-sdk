@@ -7,7 +7,6 @@ import '@agoric/install-ses';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import test from 'ava';
 
-import { updateFromIterable } from '@agoric/notifier';
 import { E } from '@agoric/eventual-send';
 import { makeAsyncIterableKit } from './asyncIterableKit';
 
@@ -88,6 +87,7 @@ const setupBorrowFacet = async (collateralValue = 1000, maxLoanValue = 100) => {
 
   const payments = { Collateral: collateralKit.mint.mintPayment(collateral) };
   const borrowSeat = await E(zoe).offer(borrowInvitation, proposal, payments);
+  /** @type {ERef<BorrowFacet>} */
   const borrowFacet = E(borrowSeat).getOfferResult();
 
   return {
@@ -144,10 +144,11 @@ test('borrow makeAddCollateralInvitation', async t => {
   await checkDescription(t, zoe, addCollateralInvitation, 'addCollateral');
 });
 
-test('borrow getDebt', async t => {
+test('borrow getDebtNotifier', async t => {
   const { borrowFacet, maxLoan } = await setupBorrowFacet();
-  const currentDebt = await E(borrowFacet).getDebt();
-  t.deepEqual(currentDebt, maxLoan);
+  const debtNotifier = await E(borrowFacet).getDebtNotifier();
+  const state = await debtNotifier.getUpdateSince();
+  t.deepEqual(state.value, maxLoan);
 });
 
 test('borrow getLiquidationPromise', async t => {
@@ -251,7 +252,7 @@ test('borrow, then addCollateral, then getLiquidationPromise', async t => {
   t.falsy(liquidated);
 });
 
-test.only('getDebt with interest', async t => {
+test('getDebtNotifier with interest', async t => {
   const {
     borrowFacet,
     maxLoan,
@@ -260,17 +261,25 @@ test.only('getDebt with interest', async t => {
     collateralKit,
     loanKit,
   } = await setupBorrowFacet(100000, 40000);
-  const originalDebt = await E(borrowFacet).getDebt();
+  const debtNotifier = await E(borrowFacet).getDebtNotifier();
+
+  const { value: originalDebt, updateCount } = await E(
+    debtNotifier,
+  ).getUpdateSince();
   t.deepEqual(originalDebt, maxLoan);
 
   periodUpdater.updateState();
 
-  const debtCompounded1 = await E(borrowFacet).getDebt();
+  const { value: debtCompounded1, updateCount: updateCount1 } = await E(
+    debtNotifier,
+  ).getUpdateSince(updateCount);
   t.deepEqual(debtCompounded1, loanKit.amountMath.make(40020));
 
   periodUpdater.updateState();
 
-  const debtCompounded2 = await E(borrowFacet).getDebt();
+  const { value: debtCompounded2 } = await E(debtNotifier).getUpdateSince(
+    updateCount1,
+  );
   t.deepEqual(debtCompounded2, loanKit.amountMath.make(40040));
 
   const closeLoanInvitation = E(borrowFacet).makeCloseLoanInvitation();

@@ -109,7 +109,9 @@ export const makeBorrowInvitation = (zcf, config) => {
       periodAsyncIterable,
       interestRate,
     };
-    const { getDebt } = makeDebtCalculator(harden(debtCalculatorConfig));
+    const { getDebt, getDebtNotifier } = makeDebtCalculator(
+      harden(debtCalculatorConfig),
+    );
 
     // The liquidationTriggerValue is when the value of the collateral
     // equals mmr percent of the wanted loan
@@ -146,10 +148,7 @@ export const makeBorrowInvitation = (zcf, config) => {
       makeAddCollateralInvitation: () =>
         makeAddCollateralInvitation(zcf, configWithBorrower),
       getLiquidationPromise: () => liquidationPromiseKit.promise,
-      getDebt: () => {
-        console.log('getDebt called');
-        return getDebt();
-      },
+      getDebtNotifier,
     };
 
     return harden(borrowFacet);
