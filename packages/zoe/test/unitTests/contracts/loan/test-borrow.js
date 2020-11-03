@@ -8,7 +8,7 @@ import '@agoric/install-ses';
 import test from 'ava';
 
 import { E } from '@agoric/eventual-send';
-import { makeAsyncIterableKit } from './asyncIterableKit';
+import { makeSubscriptionKit } from '@agoric/notifier';
 
 import {
   setupLoanUnitTest,
@@ -44,9 +44,9 @@ const setupBorrow = async (maxLoanValue = 100) => {
   const liquidate = (_zcf, _config, _expectedValue) => (liquidated = true);
 
   const {
-    updater: periodUpdater,
-    asyncIterable: periodAsyncIterable,
-  } = makeAsyncIterableKit();
+    publication: periodUpdater,
+    subscription: periodSubscription,
+  } = makeSubscriptionKit();
 
   const interestRate = 5;
 
@@ -58,7 +58,7 @@ const setupBorrow = async (maxLoanValue = 100) => {
     liquidate,
     makeCloseLoanInvitation,
     makeAddCollateralInvitation,
-    periodAsyncIterable,
+    periodAsyncIterable: periodSubscription,
     interestRate,
   };
   const borrowInvitation = makeBorrowInvitation(zcf, config);
@@ -70,7 +70,7 @@ const setupBorrow = async (maxLoanValue = 100) => {
     lenderUserSeat,
     liquidated,
     periodUpdater,
-    periodAsyncIterable,
+    periodAsyncIterable: periodSubscription,
   };
 };
 
