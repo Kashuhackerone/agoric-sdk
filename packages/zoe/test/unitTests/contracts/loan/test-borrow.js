@@ -14,7 +14,7 @@ import {
   setupLoanUnitTest,
   makeSeatKit,
   checkDetails,
-  makePriceOracle,
+  makePriceAuthority,
   performAddCollateral,
   checkDescription,
 } from './helpers';
@@ -36,9 +36,9 @@ const setupBorrow = async (maxLoanValue = 100) => {
   );
   const mmr = 150;
 
-  const { priceOracle, adminTestingFacet } = makePriceOracle(loanKit);
+  const { priceAuthority, adminTestingFacet } = makePriceAuthority(loanKit);
 
-  const autoswap = {};
+  const autoswapInstance = {};
 
   let liquidated = false;
   const liquidate = (_zcf, _config, _expectedValue) => (liquidated = true);
@@ -53,8 +53,7 @@ const setupBorrow = async (maxLoanValue = 100) => {
   const config = {
     lenderSeat,
     mmr,
-    priceOracle,
-    autoswap,
+    autoswapInstance,
     liquidate,
     makeCloseLoanInvitation,
     makeAddCollateralInvitation,

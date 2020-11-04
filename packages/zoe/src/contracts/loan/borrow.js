@@ -1,5 +1,4 @@
 // @ts-check
-
 import '../../../exported';
 
 import { assert, details } from '@agoric/assert';
@@ -10,19 +9,20 @@ import { assertProposalShape, trade, natSafeMath } from '../../contractSupport';
 
 import { scheduleLiquidation } from './scheduleLiquidation';
 import { calculateInterest, makeDebtCalculator } from './updateDebt';
+import { makeCloseLoanInvitation } from './close';
+import { makeAddCollateralInvitation } from './addCollateral';
 
 /** @type {MakeBorrowInvitation} */
 export const makeBorrowInvitation = (zcf, config) => {
   const {
-    priceOracle,
-    mmr,
-    makeCloseLoanInvitation,
-    makeAddCollateralInvitation,
-    lenderSeat,
+    mmr, // Maintenance Margin Requirement, in percent
+    autoswapPriceAuthority,
     periodAsyncIterable,
     interestRate,
+    lenderSeat,
   } = config;
 
+  // We can only lend what the lender has already escrowed.
   const maxLoan = lenderSeat.getAmountAllocated('Loan');
 
   /** @type {OfferHandler} */
@@ -33,46 +33,59 @@ export const makeBorrowInvitation = (zcf, config) => {
     });
 
     const collateralGiven = borrowerSeat.getAmountAllocated('Collateral');
+    const loanWanted = borrowerSeat.getProposal().want.Loan;
     const loanBrand = zcf.getTerms().brands.Loan;
     const loanMath = zcf.getTerms().maths.Loan;
-    const collMath = zcf.getTerms().maths.Collateral;
-    const wantedLoan = borrowerSeat.getProposal().want.Loan;
+    const collateralMath = zcf.getTerms().maths.Collateral;
 
     // The value of the collateral in the Loan brand
-    const collateralPriceInLoanBrand = await E(priceOracle).getInputPrice(
+    const { quoteAmount } = await E(autoswapPriceAuthority).quoteGiven(
       collateralGiven,
       loanBrand,
     );
     // AWAIT ///
 
-    // formula: assert collateralValue*100 >= wantedLoan*mmr
+    const collateralPriceInLoanBrand = quoteAmount.value[0].amountOut;
+
+    // formula: assert collateralValue*100 >= loanWanted*mmr
+
+    // Calculate approximate value just for the error message if needed
     const approxForMsg = loanMath.make(
-      natSafeMath.floorDivide(natSafeMath.multiply(wantedLoan.value, mmr), 100),
+      natSafeMath.floorDivide(natSafeMath.multiply(loanWanted.value, mmr), 100),
     );
+
+    // Assert the required collateral was escrowed.
     assert(
       loanMath.isGTE(
         loanMath.make(
           natSafeMath.multiply(collateralPriceInLoanBrand.value, 100),
         ),
-        loanMath.make(natSafeMath.multiply(wantedLoan.value, mmr)),
+        loanMath.make(natSafeMath.multiply(loanWanted.value, mmr)),
       ),
       details`The required margin is approximately ${approxForMsg} but collateral only had value of ${collateralPriceInLoanBrand}`,
     );
 
     // Assert that the collateralGiven has not changed after the AWAIT
     assert(
-      collMath.isEqual(
+      collateralMath.isEqual(
         collateralGiven,
         borrowerSeat.getAmountAllocated('Collateral'),
       ),
       `The collateral allocated changed during the borrow step, which should not have been possible`,
     );
 
-    // Assert that wantedLoan <= maxLoan
+    // Assert that loanWanted <= maxLoan
     assert(
-      loanMath.isGTE(maxLoan, wantedLoan),
-      details`The wanted loan ${wantedLoan} must be below or equal to the maximum possible loan ${maxLoan}`,
+      loanMath.isGTE(maxLoan, loanWanted),
+      details`The wanted loan ${loanWanted} must be below or equal to the maximum possible loan ${maxLoan}`,
     );
+
+    // Schedule the liquidation. If the liquidation cannot be scheduled
+    // because of a problem with a misconfigured priceAuthority, an
+    // error will be thrown and the borrower will be stuck with their
+    // loan and the lender will receive the collateral. It is
+    // important for the borrower to validate the autoswapInstance for
+    // this reason.
 
     const { zcfSeat: collateralSeat } = zcf.makeEmptySeatKit();
 
@@ -83,7 +96,7 @@ export const makeBorrowInvitation = (zcf, config) => {
         seat: lenderSeat,
         gains: {},
       },
-      { seat: collateralSeat, gains: { Loan: wantedLoan } },
+      { seat: collateralSeat, gains: { Loan: loanWanted } },
     );
 
     // Transfer *all* collateral to the collateral seat. Transfer the
@@ -94,7 +107,7 @@ export const makeBorrowInvitation = (zcf, config) => {
         seat: collateralSeat,
         gains: { Collateral: collateralGiven },
       },
-      { seat: borrowerSeat, gains: { Loan: wantedLoan } },
+      { seat: borrowerSeat, gains: { Loan: loanWanted } },
     );
 
     // We now exit the borrower seat so that the borrower gets their
@@ -102,10 +115,11 @@ export const makeBorrowInvitation = (zcf, config) => {
     // that will let them continue to interact with the contract.
     borrowerSeat.exit();
 
+    /** @type {DebtCalculatorConfig} */
     const debtCalculatorConfig = {
       calcInterestFn: calculateInterest,
-      originalDebt: wantedLoan,
-      debtMath: loanMath,
+      originalDebt: loanWanted,
+      loanMath,
       periodAsyncIterable,
       interestRate,
     };
@@ -113,29 +127,17 @@ export const makeBorrowInvitation = (zcf, config) => {
       harden(debtCalculatorConfig),
     );
 
-    // The liquidationTriggerValue is when the value of the collateral
-    // equals mmr percent of the wanted loan
-    // Formula: liquidationTriggerValue = (wantedLoan * mmr) / 100
-    const liquidationTriggerValue = loanMath.make(
-      natSafeMath.floorDivide(natSafeMath.multiply(wantedLoan.value, mmr), 100),
-    );
-
     const liquidationPromiseKit = makePromiseKit();
 
+    /** @type {LoanConfigWithBorrower} */
     const configWithBorrower = {
       ...config,
-      getDebt,
       collateralSeat,
-      liquidationTriggerValue,
+      getDebt,
       liquidationPromiseKit,
     };
 
     scheduleLiquidation(zcf, configWithBorrower);
-
-    // The borrower can set up their own margin calls by getting the
-    // priceOracle from the terms and calling
-    // `E(priceOracle).priceWhenLT(collateralGiven, x)` where x is
-    // the priceLimit at which they want a reminder to addCollateral.
 
     // TODO: Add ability to liquidate partially
     // TODO: Add ability to withdraw excess collateral

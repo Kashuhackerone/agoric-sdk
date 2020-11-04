@@ -1,53 +1,103 @@
 /**
- * @typedef LoanConfig
- * @property {number} mmr
- * @property {PriceOracle} priceOracle
- * @property {Autoswap} autoswap
- * @property {MakeBorrowInvitation} makeBorrowInvitation
- * @property {Liquidate} liquidate
- * @property {MakeCloseLoanInvitation} makeCloseLoanInvitation
- * @property {MakeAddCollateralInvitation} makeAddCollateralInvitation
- * @property {AsyncIterable} periodAsyncIterable
+ * @typedef {AsyncIterable<undefined>} PeriodAsyncIterable
+ *
+ *  The asyncIterable used for notifications that a period has passed,
+ *  on which compound interest will be calculated using the
+ *  interestRate.
+ */
+
+/**
+ * @typedef {number} mmr
+ *
+ *  The Maintenance Margin Requirement, in percent. The default is
+ *  150, meaning that collateral should be worth at least 150% of the
+ *  loan. If the value of the collateral drops below mmr, liquidation
+ *  occurs.
+ */
+
+/**
+ * @typedef LoanTerms
+ * @property {mmr} [mmr=150]
+ *
+ * @property {Instance} autoswapInstance
+ *
+ *   The running contract instance for an Autoswap or Multipool
+ *   Autoswap installation. The priceAuthority from this instance will
+ *   be used for getting the current value of collateral and setting
+ *   liquidation triggers. The publicFacet from the same Autoswap
+ *   instance is used for producing an invitation to sell the
+ *   collateral on liquidation.
+ *
+ * @property {PriceAuthority} autoswapPriceAuthority
+ *
+ *   The priceAuthority from an Autoswap instance. Used for getting
+ *   the current value of collateral and setting liquidation triggers.
+ *
+ * @property {AutoswapPublicFacet} autoswapPublicFacet
+ *
+ *   The publicFacet from the same Autoswap instance as the
+ *   priceAuthority. Used for producing an invitation to swap on
+ *   liquidation.
+ *
+ * @property {PeriodAsyncIterable} periodAsyncIterable
+ *
+ *   The asyncIterable used for notifications that a period has
+ *   passed, on which compound interest will be calculated using the
+ *   interestRate.
+ *
  * @property {number} interestRate
  *
- * The beginning configuration for a loan before a lender or
- * collateral has been added.
+ *   The rate in basis points that will be multiplied with the debt on
+ *   every period to compound interest.
  */
 
 /**
- * @typedef ConfigLender
+ * @typedef LenderSeatProperty
  * @property {ZCFSeat} lenderSeat
+ *
+ *   The ZCFSeat representing the lender's position in the contract.
  */
 
 /**
- * @typedef ConfigBorrower
- * @property {ZCFSeat} lenderSeat
+ * @typedef {LoanTerms & LenderSeatProperty} LoanConfigWithLender
+ *
+ * The loan now has a lenderSeat, which is added to the config.
+ */
+
+/**
+ * @typedef BorrowerConfigProperties
+ *
  * @property {ZCFSeat} collateralSeat
+ *
+ *   The ZCFSeat holding the collateral in escrow after the borrower
+ *   escrows it
+ *
  * @property {() => Amount} getDebt
- * @property {Amount} liquidationTriggerValue The value of the
- * collateral in Loan brand terms, below which liquidation will be
- * triggered
- * @property {PromiseKit} liquidationPromiseKit PromiseKit that
- * includes a promise that resolves to a PriceQuote when liquidation
- * is triggered
+ *
+ *   A function to get the current debt
+ *
+ * @property {PromiseKit} liquidationPromiseKit
+ *
+ *   PromiseKit that includes a promise that resolves to a PriceQuote
+ *   when liquidation is triggered
  */
 
 /**
- * @typedef {LoanConfig & ConfigLender} LoanConfigWithLender
+ * @typedef {LoanConfigWithLender & BorrowerConfigProperties } LoanConfigWithBorrower
  *
- * The loan has a lender.
+ * The loan has a lender, a borrower, and collateral escrowed.
  */
 
 /**
- * @typedef {LoanConfig & ConfigBorrower } LoanConfigWithBorrower
- *
- * The loan has a lender and collateral.
+ * @callback ScheduleLiquidation
+ * @param {ContractFacet} zcf
+ * @param {LoanConfigWithBorrower} config
  */
 
 /**
  * @callback MakeLendInvitation
  * @param {ContractFacet} zcf
- * @param {LoanConfig} config
+ * @param {LoanTerms} config
  * @returns {Promise<Invitation>} lendInvitation
  */
 
@@ -84,12 +134,6 @@
  */
 
 /**
- * @callback ScheduleLiquidation
- * @param {ContractFacet} zcf
- * @param {LoanConfigWithBorrower} config
- */
-
-/**
  * @callback MakeDebtCalculator
  * @param {DebtCalculatorConfig} debtCalculatorConfig
  */
@@ -104,9 +148,22 @@
 /**
  * @typedef {Object} DebtCalculatorConfig
  * @property {CalcInterestFn} calcInterestFn
+ *
+ *   A function to calculate the interest, given the debt value and an
+ *   interest rate in basis points.
+ *
  * @property {Amount} originalDebt
- * @property {AmountMath} debtMath
- * @property {AsyncIterable} periodAsyncIterable
+ *
+ *   The debt at the start of the loan, in Loan brand
+ *
+ * @property {AmountMath} loanMath
+ *
+ *   AmountMath for the loan brand
+ *
+ * @property {PeriodAsyncIterable} periodAsyncIterable
+ *
+ *   The AsyncIterable to notify when a period has occurred
+ *
  * @property {number} interestRate
  */
 

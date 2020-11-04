@@ -14,8 +14,7 @@ import { makeLendInvitation } from '../../../../src/contracts/loan/lend';
 test('makeLendInvitation', async t => {
   const { zcf, zoe, loanKit } = await setupLoanUnitTest();
 
-  const makeBorrowInvitation = () => 'imaginary borrow invitation';
-  const config = { makeBorrowInvitation };
+  const config = {};
   const lendInvitation = makeLendInvitation(zcf, config);
 
   await checkDescription(t, zoe, lendInvitation, 'lend');
@@ -33,5 +32,5 @@ test('makeLendInvitation', async t => {
   const lenderSeat = await E(zoe).offer(lendInvitation, proposal, payments);
 
   const borrowInvitation = await E(lenderSeat).getOfferResult();
-  t.is(borrowInvitation, 'imaginary borrow invitation');
+  await checkDescription(t, zoe, borrowInvitation, 'borrow');
 });

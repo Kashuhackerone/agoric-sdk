@@ -11,8 +11,8 @@ import { setupLoanEndToEnd, checkDetails, checkPayout } from './helpers';
 
 test.todo('loan - no mmr');
 test.todo('loan - bad mmr');
-test.todo('loan - no priceOracle');
-test.todo('loan - badPriceOracle');
+test.todo('loan - no priceAuthority');
+test.todo('loan - badPriceAuthority');
 test.todo('loan - bad autoswap, no autoswap');
 test.todo('loan - wrong keywords');
 

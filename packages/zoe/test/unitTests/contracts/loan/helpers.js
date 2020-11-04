@@ -12,7 +12,7 @@ import { natSafeMath } from '../../../../src/contractSupport';
 import { setup } from '../../setupBasicMints';
 import { setupZCFTest } from '../../zcf/setupZcfTest';
 
-const loanRoot = `${__dirname}/../../../../src/contracts/loan/vault`;
+const loanRoot = `${__dirname}/../../../../src/contracts/loan/`;
 
 /**
  * @param {import("ava").ExecutionContext<unknown>} t
@@ -90,8 +90,7 @@ export const checkPayouts = async (
 export const setupLoanEndToEnd = async (
   terms = harden({
     mmr: 150,
-    priceOracle: {},
-    autoswap: {},
+    autoswapInstance: {},
   }),
 ) => {
   const { moolaKit: collateralKit, simoleanKit: loanKit, zoe } = setup();
@@ -122,8 +121,7 @@ export const setupLoanEndToEnd = async (
 export const setupLoanUnitTest = async (
   terms = harden({
     mmr: 150,
-    priceOracle: {},
-    autoswap: {},
+    autoswapInstance: {},
   }),
 ) => {
   const { moolaKit: collateralKit, simoleanKit: loanKit } = setup();
@@ -170,7 +168,7 @@ export const makeSeatKit = async (zcf, proposal, payments) => {
   return harden({ zcfSeat, userSeat });
 };
 
-export const makePriceOracle = loanKit => {
+export const makePriceAuthority = loanKit => {
   const quoteIssuerKit = makeIssuerKit('quote', MathKind.SET);
 
   // array of objects with { assetAmount, priceLimit, promiseKit }
@@ -198,11 +196,11 @@ export const makePriceOracle = loanKit => {
     quoteIssuerKit,
   };
 
-  const priceOracle = {
-    getInputPrice: (amountIn, _brandOut) => {
+  const priceAuthority = {
+    quoteGiven: (amountIn, _brandOut) => {
       return loanKit.amountMath.make(natSafeMath.multiply(amountIn.value, 2));
     },
-    priceWhenLT: (assetAmount, priceLimit) => {
+    quoteWhenLT: (assetAmount, priceLimit) => {
       const promiseKit = makePromiseKit();
       priceBelowPromiseKitEntries.push(
         harden({ assetAmount, priceLimit, promiseKit }),
@@ -213,7 +211,7 @@ export const makePriceOracle = loanKit => {
   };
 
   return harden({
-    priceOracle,
+    priceAuthority,
     adminTestingFacet,
   });
 };

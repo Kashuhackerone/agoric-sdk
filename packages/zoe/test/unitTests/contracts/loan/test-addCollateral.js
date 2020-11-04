@@ -12,7 +12,7 @@ import { makeAddCollateralInvitation } from '../../../../src/contracts/loan/addC
 import {
   setupLoanUnitTest,
   makeSeatKit,
-  makePriceOracle,
+  makePriceAuthority,
   performAddCollateral,
 } from './helpers';
 
@@ -32,9 +32,9 @@ test('makeAddCollateralInvitation', async t => {
     },
   );
 
-  const { priceOracle } = makePriceOracle(loanKit);
+  const { priceAuthority } = makePriceAuthority(loanKit);
 
-  const config = { collateralSeat, priceOracle };
+  const config = { collateralSeat, autoswapInstance };
   const addCollateralInvitation = makeAddCollateralInvitation(zcf, config);
 
   const addedAmount = collateralKit.amountMath.make(3);

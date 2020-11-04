@@ -28,7 +28,7 @@ export const makeDebtCalculator = debtCalculatorConfig => {
   const {
     calcInterestFn = calculateInterest,
     originalDebt,
-    debtMath,
+    loanMath,
     periodAsyncIterable,
     interestRate,
   } = debtCalculatorConfig;
@@ -40,8 +40,8 @@ export const makeDebtCalculator = debtCalculatorConfig => {
   } = makeNotifierKit();
 
   const updateDebt = _state => {
-    const interest = debtMath.make(calcInterestFn(debt.value, interestRate));
-    debt = debtMath.add(debt, interest);
+    const interest = loanMath.make(calcInterestFn(debt.value, interestRate));
+    debt = loanMath.add(debt, interest);
     debtNotifierUpdater.updateState(debt);
   };
 
