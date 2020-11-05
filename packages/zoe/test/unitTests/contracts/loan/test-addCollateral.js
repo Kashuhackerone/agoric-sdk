@@ -8,11 +8,11 @@ import '@agoric/install-ses';
 import test from 'ava';
 
 import { makeAddCollateralInvitation } from '../../../../src/contracts/loan/addCollateral';
+import { } from '../../../test/fakePriceAuthority';
 
 import {
   setupLoanUnitTest,
   makeSeatKit,
-  makePriceAuthority,
   performAddCollateral,
 } from './helpers';
 
@@ -33,8 +33,10 @@ test('makeAddCollateralInvitation', async t => {
   );
 
   const { priceAuthority } = makePriceAuthority(loanKit);
+  
+  const autoswapInstance = {};
 
-  const config = { collateralSeat, autoswapInstance };
+  const config = { collateralSeat, autoswapInstance, priceAuthority };
   const addCollateralInvitation = makeAddCollateralInvitation(zcf, config);
 
   const addedAmount = collateralKit.amountMath.make(3);

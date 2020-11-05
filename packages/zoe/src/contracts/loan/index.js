@@ -31,12 +31,12 @@ import { makeLendInvitation } from './lend';
  *    percent. The default is 150, meaning that collateral should be
  *    worth at least 150% of the loan. If the value of the collateral
  *    drops below mmr, liquidation occurs.
+ *  * priceAuthority - will be used for getting the current value of
+ *    collateral and setting liquidation triggers.
  *  * autoswapInstance - The running contract instance for an Autoswap
- *    or Multipool Autoswap installation. The priceAuthority from this
- *    instance will be used for getting the current value of
- *    collateral and setting liquidation triggers. The publicFacet
- *    from the same Autoswap instance is used for producing an
- *    invitation to sell the collateral on liquidation.
+ *    or Multipool Autoswap installation. The publicFacet of the
+ *    instance is used for producing an invitation to sell the
+ *    collateral on liquidation.
  *  * periodAsyncIterable - the asyncIterable used for notifications
  *    that a period has passed, on which compound interest will be
  *    calculated using the interestRate.
@@ -56,31 +56,41 @@ const start = async zcf => {
 
   // Rather than grabbing the terms each time we use them, let's set
   // some defaults and add them to a contract-wide config.
+
   const {
     mmr = 150, // Maintenance Margin Requirement
     autoswapInstance,
+    priceAuthority,
     periodAsyncIterable,
     interestRate,
   } = zcf.getTerms();
 
+  // Enable a type check
+  /** @type {LoanTerms} */
+  const _ = {
+    mmr,
+    autoswapInstance,
+    priceAuthority,
+    periodAsyncIterable,
+    interestRate,
+  };
+
   assert(autoswapInstance, `autoswapInstance must be provided`);
+  assert(priceAuthority, `priceAuthority must be provided`);
   assert(periodAsyncIterable, `periodAsyncIterable must be provided`);
   assert(interestRate, `interestRate must be provided`);
 
   const zoeService = zcf.getZoeService();
-  const autoswapPublicFacetP = E(zoeService).getPublicFacet(autoswapInstance);
-
-  const [autoswapPublicFacet, autoswapPriceAuthority] = await Promise.all([
-    autoswapPublicFacetP,
-    E(autoswapPublicFacetP).getPriceAuthority(),
-  ]);
+  const autoswapPublicFacet = await E(zoeService).getPublicFacet(
+    autoswapInstance,
+  );
   // AWAIT ///
 
-  /** @type {LoanTerms} */
+  /** @type {LoanConfig} */
   const config = {
     mmr,
-    autoswapPriceAuthority,
     autoswapPublicFacet,
+    priceAuthority,
     periodAsyncIterable,
     interestRate,
   };

@@ -38,7 +38,7 @@ const setupBorrow = async (maxLoanValue = 100) => {
 
   const { priceAuthority, adminTestingFacet } = makePriceAuthority(loanKit);
 
-  const autoswapInstance = {};
+  const autoswapInstance = harden({});
 
   let liquidated = false;
   const liquidate = (_zcf, _config, _expectedValue) => (liquidated = true);
@@ -54,6 +54,7 @@ const setupBorrow = async (maxLoanValue = 100) => {
     lenderSeat,
     mmr,
     autoswapInstance,
+    priceAuthority,
     liquidate,
     makeCloseLoanInvitation,
     makeAddCollateralInvitation,

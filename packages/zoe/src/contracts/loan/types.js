@@ -7,8 +7,7 @@
  */
 
 /**
- * @typedef {number} mmr
- *
+ * @typedef {number} MMR
  *  The Maintenance Margin Requirement, in percent. The default is
  *  150, meaning that collateral should be worth at least 150% of the
  *  loan. If the value of the collateral drops below mmr, liquidation
@@ -16,39 +15,48 @@
  */
 
 /**
- * @typedef LoanTerms
- * @property {mmr} [mmr=150]
- *
- * @property {Instance} autoswapInstance
- *
+ * @typedef {Instance} AutoswapInstance
  *   The running contract instance for an Autoswap or Multipool
- *   Autoswap installation. The priceAuthority from this instance will
- *   be used for getting the current value of collateral and setting
- *   liquidation triggers. The publicFacet from the same Autoswap
+ *   Autoswap installation.  The publicFacet from the Autoswap
  *   instance is used for producing an invitation to sell the
  *   collateral on liquidation.
- *
- * @property {PriceAuthority} autoswapPriceAuthority
- *
- *   The priceAuthority from an Autoswap instance. Used for getting
- *   the current value of collateral and setting liquidation triggers.
- *
- * @property {AutoswapPublicFacet} autoswapPublicFacet
- *
- *   The publicFacet from the same Autoswap instance as the
- *   priceAuthority. Used for producing an invitation to swap on
- *   liquidation.
- *
- * @property {PeriodAsyncIterable} periodAsyncIterable
- *
- *   The asyncIterable used for notifications that a period has
- *   passed, on which compound interest will be calculated using the
- *   interestRate.
- *
- * @property {number} interestRate
+ */
+
+/** @typedef {number} InterestRate
  *
  *   The rate in basis points that will be multiplied with the debt on
  *   every period to compound interest.
+ */
+
+/**
+ * @typedef LoanTerms
+ *
+ * @property {MMR} [mmr=150]
+ *
+ * @property {AutoswapInstance} autoswapInstance
+ *
+ * @property {PriceAuthority} priceAuthority
+ *
+ *   Used for getting the current value of collateral and setting
+ *   liquidation triggers.
+ *
+ * @property {PeriodAsyncIterable} periodAsyncIterable
+ *
+ * @property {InterestRate} interestRate
+ */
+
+/**
+ * @typedef {Object} LoanConfig
+ * @property {number} [mmr=150]
+ * @property {AutoswapPublicFacet} autoswapPublicFacet
+ *
+ *   The publicFacet from the Autoswap instance in the terms. Used for
+ *   producing an invitation to swap on liquidation.
+ *
+ * @property {PriceAuthority} priceAuthority
+ * @property {PeriodAsyncIterable} periodAsyncIterable
+ * @property {InterestRate} interestRate
+ *
  */
 
 /**
@@ -59,7 +67,7 @@
  */
 
 /**
- * @typedef {LoanTerms & LenderSeatProperty} LoanConfigWithLender
+ * @typedef {LoanConfig & LenderSeatProperty} LoanConfigWithLender
  *
  * The loan now has a lenderSeat, which is added to the config.
  */
@@ -97,7 +105,7 @@
 /**
  * @callback MakeLendInvitation
  * @param {ContractFacet} zcf
- * @param {LoanTerms} config
+ * @param {LoanConfig} config
  * @returns {Promise<Invitation>} lendInvitation
  */
 

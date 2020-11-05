@@ -16,7 +16,7 @@ import { makeAddCollateralInvitation } from './addCollateral';
 export const makeBorrowInvitation = (zcf, config) => {
   const {
     mmr, // Maintenance Margin Requirement, in percent
-    autoswapPriceAuthority,
+    priceAuthority,
     periodAsyncIterable,
     interestRate,
     lenderSeat,
@@ -39,7 +39,7 @@ export const makeBorrowInvitation = (zcf, config) => {
     const collateralMath = zcf.getTerms().maths.Collateral;
 
     // The value of the collateral in the Loan brand
-    const { quoteAmount } = await E(autoswapPriceAuthority).quoteGiven(
+    const { quoteAmount } = await E(priceAuthority).quoteGiven(
       collateralGiven,
       loanBrand,
     );
@@ -84,7 +84,7 @@ export const makeBorrowInvitation = (zcf, config) => {
     // because of a problem with a misconfigured priceAuthority, an
     // error will be thrown and the borrower will be stuck with their
     // loan and the lender will receive the collateral. It is
-    // important for the borrower to validate the autoswapInstance for
+    // important for the borrower to validate the priceAuthority for
     // this reason.
 
     const { zcfSeat: collateralSeat } = zcf.makeEmptySeatKit();

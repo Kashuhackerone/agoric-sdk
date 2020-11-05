@@ -168,54 +168,6 @@ export const makeSeatKit = async (zcf, proposal, payments) => {
   return harden({ zcfSeat, userSeat });
 };
 
-export const makePriceAuthority = loanKit => {
-  const quoteIssuerKit = makeIssuerKit('quote', MathKind.SET);
-
-  // array of objects with { assetAmount, priceLimit, promiseKit }
-  const priceBelowPromiseKitEntries = [];
-
-  const resolvePromiseKitEntry = (promiseKitEntry, timer, timestamp) => {
-    const { assetAmount, priceLimit: price, promiseKit } = promiseKitEntry;
-    const quoteValue = harden([
-      {
-        assetAmount,
-        price,
-        timer,
-        timestamp,
-      },
-    ]);
-    const quoteAmount = quoteIssuerKit.amountMath.make(quoteValue);
-    const quotePayment = quoteIssuerKit.mint.mintPayment(quoteAmount);
-    const quote = harden({ quoteAmount, quotePayment });
-    promiseKit.resolve(quote);
-  };
-
-  const adminTestingFacet = {
-    getPriceBelowPromiseKitEntries: () => priceBelowPromiseKitEntries,
-    resolvePromiseKitEntry,
-    quoteIssuerKit,
-  };
-
-  const priceAuthority = {
-    quoteGiven: (amountIn, _brandOut) => {
-      return loanKit.amountMath.make(natSafeMath.multiply(amountIn.value, 2));
-    },
-    quoteWhenLT: (assetAmount, priceLimit) => {
-      const promiseKit = makePromiseKit();
-      priceBelowPromiseKitEntries.push(
-        harden({ assetAmount, priceLimit, promiseKit }),
-      );
-      return promiseKit.promise;
-    },
-    getQuoteIssuer: quoteIssuerKit.issuer,
-  };
-
-  return harden({
-    priceAuthority,
-    adminTestingFacet,
-  });
-};
-
 /**
  * @callback PerformAddCollateral
  * @param {import("ava").ExecutionContext<unknown>} t
