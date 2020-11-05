@@ -73,11 +73,11 @@ test('test liquidate with mocked autoswap', async t => {
     return `Swap successfully completed.`;
   };
 
-  const autoswap = {
+  const autoswapPublicFacet = {
     makeSwapInInvitation: () => zcf.makeInvitation(swapHandler, 'swap'),
   };
 
-  const config = { collateralSeat, autoswap, lenderSeat };
+  const config = { collateralSeat, autoswapPublicFacet, lenderSeat };
   await liquidate(zcf, config, price);
 
   // Ensure collateralSeat exited

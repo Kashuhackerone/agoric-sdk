@@ -3,16 +3,9 @@ import '../../../../exported';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import '@agoric/install-ses';
 import { E } from '@agoric/eventual-send';
-import bundleSource from '@agoric/bundle-source';
-
-import { makeIssuerKit, MathKind } from '@agoric/ertp';
-import { makePromiseKit } from '@agoric/promise-kit';
-import { natSafeMath } from '../../../../src/contractSupport';
 
 import { setup } from '../../setupBasicMints';
 import { setupZCFTest } from '../../zcf/setupZcfTest';
-
-const loanRoot = `${__dirname}/../../../../src/contracts/loan/`;
 
 /**
  * @param {import("ava").ExecutionContext<unknown>} t
@@ -85,37 +78,6 @@ export const checkPayouts = async (
     );
   });
   t.truthy(seat.hasExited());
-};
-
-export const setupLoanEndToEnd = async (
-  terms = harden({
-    mmr: 150,
-    autoswapInstance: {},
-  }),
-) => {
-  const { moolaKit: collateralKit, simoleanKit: loanKit, zoe } = setup();
-  const bundle = await bundleSource(loanRoot);
-  const installation = await E(zoe).install(bundle);
-
-  const issuerKeywordRecord = harden({
-    Collateral: collateralKit.issuer,
-    Loan: loanKit.issuer,
-  });
-  const { creatorInvitation: lendInvitation, instance } = await E(
-    zoe,
-  ).startInstance(installation, issuerKeywordRecord, terms);
-
-  const invitationIssuer = await E(zoe).getInvitationIssuer();
-
-  return {
-    lendInvitation,
-    collateralKit,
-    loanKit,
-    zoe,
-    invitationIssuer,
-    installation,
-    instance,
-  };
 };
 
 export const setupLoanUnitTest = async (

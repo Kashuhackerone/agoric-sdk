@@ -8,7 +8,8 @@ import '@agoric/install-ses';
 import test from 'ava';
 
 import { makeAddCollateralInvitation } from '../../../../src/contracts/loan/addCollateral';
-import { } from '../../../test/fakePriceAuthority';
+import { makeFakePriceAuthority } from '../../../fakePriceAuthority';
+import buildManualTimer from '../../../../tools/manualTimer';
 
 import {
   setupLoanUnitTest,
@@ -32,11 +33,35 @@ test('makeAddCollateralInvitation', async t => {
     },
   );
 
-  const { priceAuthority } = makePriceAuthority(loanKit);
-  
-  const autoswapInstance = {};
+  const { zcfSeat: lenderSeat } = await zcf.makeEmptySeatKit();
 
-  const config = { collateralSeat, autoswapInstance, priceAuthority };
+  const amountMaths = new Map();
+  amountMaths.set(
+    collateralKit.brand.getAllegedName(),
+    collateralKit.amountMath,
+  );
+  amountMaths.set(loanKit.brand.getAllegedName(), loanKit.amountMath);
+
+  const priceSchedule = {};
+  const timer = buildManualTimer(console.log);
+
+  const priceAuthority = makeFakePriceAuthority(
+    amountMaths,
+    priceSchedule,
+    timer,
+  );
+
+  const autoswapInstance = {};
+  const getDebt = () => loanKit.amountMath.make(100);
+
+  const config = {
+    collateralSeat,
+    lenderSeat,
+    autoswapInstance,
+    priceAuthority,
+    getDebt,
+    mmr: 150,
+  };
   const addCollateralInvitation = makeAddCollateralInvitation(zcf, config);
 
   const addedAmount = collateralKit.amountMath.make(3);

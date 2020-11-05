@@ -7,7 +7,16 @@ import '@agoric/install-ses';
 import test from 'ava';
 import { E } from '@agoric/eventual-send';
 
-import { setupLoanEndToEnd, checkDetails, checkPayout } from './helpers';
+import bundleSource from '@agoric/bundle-source';
+import { makeSubscriptionKit } from '@agoric/notifier';
+
+import { checkDetails, checkPayout } from './helpers';
+import { setup } from '../../setupBasicMints';
+import { makeFakePriceAuthority } from '../../../fakePriceAuthority';
+import buildManualTimer from '../../../../tools/manualTimer';
+
+const loanRoot = `${__dirname}/../../../../src/contracts/loan/`;
+const autoswapRoot = `${__dirname}/../../../../src/contracts/autoswap`;
 
 test.todo('loan - no mmr');
 test.todo('loan - bad mmr');
@@ -20,13 +29,53 @@ test.todo('loan - lend - wrong exit rule');
 test.todo('loan - lend - must want nothing');
 
 test('loan - lend - exit before borrow', async t => {
-  const {
-    lendInvitation,
-    loanKit,
+  const { moolaKit: collateralKit, simoleanKit: loanKit, zoe } = setup();
+  const bundle = await bundleSource(loanRoot);
+  const installation = await E(zoe).install(bundle);
+
+  // Create autoswap installation and instance
+  const autoswapBundle = await bundleSource(autoswapRoot);
+  const autoswapInstallation = await E(zoe).install(autoswapBundle);
+
+  const { instance: autoswapInstance } = await E(zoe).startInstance(
+    autoswapInstallation,
+    harden({ Central: collateralKit.issuer, Secondary: loanKit.issuer }),
+  );
+
+  const issuerKeywordRecord = harden({
+    Collateral: collateralKit.issuer,
+    Loan: loanKit.issuer,
+  });
+
+  const amountMaths = new Map();
+  amountMaths.set(
+    collateralKit.brand.getAllegedName(),
+    collateralKit.amountMath,
+  );
+  amountMaths.set(loanKit.brand.getAllegedName(), loanKit.amountMath);
+
+  const priceSchedule = {};
+  const timer = buildManualTimer(console.log);
+
+  const priceAuthority = makeFakePriceAuthority(
+    amountMaths,
+    priceSchedule,
+    timer,
+  );
+
+  const { subscription: periodAsyncIterable } = makeSubscriptionKit();
+
+  const terms = {
+    mmr: 150,
+    autoswapInstance,
+    priceAuthority,
+    periodAsyncIterable,
+    interestRate: 5,
+  };
+
+  const { creatorInvitation: lendInvitation, instance } = await E(
     zoe,
-    installation,
-    instance,
-  } = await setupLoanEndToEnd();
+  ).startInstance(installation, issuerKeywordRecord, terms);
 
   const maxLoan = loanKit.amountMath.make(1000);
 

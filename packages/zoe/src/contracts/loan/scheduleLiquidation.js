@@ -11,7 +11,7 @@ export const scheduleLiquidation = (zcf, configWithBorrower) => {
   const {
     collateralSeat,
     lenderSeat,
-    priceOracle,
+    priceAuthority,
     liquidate,
     liquidationPromiseKit,
     getDebt,
@@ -33,7 +33,7 @@ export const scheduleLiquidation = (zcf, configWithBorrower) => {
 
   const allCollateral = collateralSeat.getAmountAllocated('Collateral');
 
-  const internalLiquidationPromise = E(priceOracle).priceWhenLT(
+  const internalLiquidationPromise = E(priceAuthority).quoteWhenLT(
     allCollateral,
     liquidationTriggerValue,
   );
@@ -42,7 +42,7 @@ export const scheduleLiquidation = (zcf, configWithBorrower) => {
     .then(priceQuote => {
       const { quoteAmount } = priceQuote;
       const expectedValueOfCollateral = quoteAmount.value[0].price;
-      const assetAmount = quoteAmount.value[0].assetAmount;
+      const assetAmount = quoteAmount.value[0].amountIn;
       // Only liquidate if this trigger is still pertinent.  Check
       // that the quote is for exactly the current amount of
       // collateral
@@ -54,7 +54,7 @@ export const scheduleLiquidation = (zcf, configWithBorrower) => {
     })
     .catch(err => {
       console.error(
-        `Could not schedule automatic liquidation at the liquidationTriggerValue ${liquidationTriggerValue} using this priceOracle ${priceOracle}`,
+        `Could not schedule automatic liquidation at the liquidationTriggerValue ${liquidationTriggerValue} using this priceAuthority ${priceAuthority}`,
       );
       console.error(err);
       // The borrower has exited at this point with their loan. The

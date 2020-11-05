@@ -10,23 +10,25 @@ import test from 'ava';
 import { E } from '@agoric/eventual-send';
 import { makeSubscriptionKit } from '@agoric/notifier';
 
+import { makeLocalAmountMath } from '@agoric/ertp';
 import {
   setupLoanUnitTest,
   makeSeatKit,
   checkDetails,
-  makePriceAuthority,
   performAddCollateral,
   checkDescription,
 } from './helpers';
 
-import { makeBorrowInvitation } from '../../../../src/contracts/loan/borrow';
+import { makeFakePriceAuthority } from '../../../fakePriceAuthority';
+import buildManualTimer from '../../../../tools/manualTimer';
 
+import { makeBorrowInvitation } from '../../../../src/contracts/loan/borrow';
 import { makeAddCollateralInvitation } from '../../../../src/contracts/loan/addCollateral';
 import { makeCloseLoanInvitation } from '../../../../src/contracts/loan/close';
 
 const setupBorrow = async (maxLoanValue = 100) => {
   const setup = await setupLoanUnitTest();
-  const { zcf, loanKit } = setup;
+  const { zcf, loanKit, collateralKit } = setup;
   // Set up the lender seat
   const maxLoan = loanKit.amountMath.make(maxLoanValue);
   const { zcfSeat: lenderSeat, userSeat: lenderUserSeat } = await makeSeatKit(
@@ -36,7 +38,24 @@ const setupBorrow = async (maxLoanValue = 100) => {
   );
   const mmr = 150;
 
-  const { priceAuthority, adminTestingFacet } = makePriceAuthority(loanKit);
+  const amountMaths = new Map();
+  amountMaths.set(
+    collateralKit.brand.getAllegedName(),
+    collateralKit.amountMath,
+  );
+  amountMaths.set(loanKit.brand.getAllegedName(), loanKit.amountMath);
+
+  const priceSchedule = [
+    { time: 0, price: 2 },
+    { time: 1, price: 1 },
+  ];
+  const timer = buildManualTimer(console.log);
+
+  const priceAuthority = makeFakePriceAuthority(
+    amountMaths,
+    priceSchedule,
+    timer,
+  );
 
   const autoswapInstance = harden({});
 
@@ -61,16 +80,18 @@ const setupBorrow = async (maxLoanValue = 100) => {
     periodAsyncIterable: periodSubscription,
     interestRate,
   };
+  // @ts-ignore
   const borrowInvitation = makeBorrowInvitation(zcf, config);
   return {
     ...setup,
     borrowInvitation,
     maxLoan,
-    adminTestingFacet,
     lenderUserSeat,
     liquidated,
     periodUpdater,
     periodAsyncIterable: periodSubscription,
+    timer,
+    priceAuthority,
   };
 };
 
@@ -154,33 +175,37 @@ test('borrow getDebtNotifier', async t => {
 test('borrow getLiquidationPromise', async t => {
   const {
     borrowFacet,
-    adminTestingFacet,
     collateralKit,
     loanKit,
+    priceAuthority,
+    timer,
   } = await setupBorrowFacet(100);
   const liquidationPromise = E(borrowFacet).getLiquidationPromise();
 
   const collateralGiven = collateralKit.amountMath.make(100);
-  const liquidationTriggerValue = loanKit.amountMath.make(150);
-  const {
-    getPriceBelowPromiseKitEntries,
-    resolvePromiseKitEntry,
-    quoteIssuerKit,
-  } = adminTestingFacet;
-  const priceBelowPromiseKitEntries = getPriceBelowPromiseKitEntries();
-  resolvePromiseKitEntry(priceBelowPromiseKitEntries[0], {}, 1);
+
+  const quoteIssuer = await E(priceAuthority).getQuoteIssuer(
+    collateralKit.brand,
+    loanKit.brand,
+  );
+  const quoteAmountMath = await makeLocalAmountMath(quoteIssuer);
+
+  // According to the schedule, the value of the collateral moves from
+  // 2x the loan brand to only 1x the loan brand at time 1.
+  await timer.tick();
+
   const { quoteAmount, quotePayment } = await liquidationPromise;
-  const quoteAmount2 = await E(quoteIssuerKit.issuer).getAmountOf(quotePayment);
+  const quoteAmount2 = await E(quoteIssuer).getAmountOf(quotePayment);
 
   t.deepEqual(quoteAmount, quoteAmount2);
   t.deepEqual(
     quoteAmount,
-    quoteIssuerKit.amountMath.make(
+    quoteAmountMath.make(
       harden([
         {
-          assetAmount: collateralGiven,
-          price: liquidationTriggerValue,
-          timer: {},
+          amountIn: collateralGiven,
+          amountOut: loanKit.amountMath.make(100),
+          timer,
           timestamp: 1,
         },
       ]),
@@ -196,16 +221,15 @@ test('borrow, then addCollateral, then getLiquidationPromise', async t => {
     collateralKit,
     loanKit,
     zoe,
-    adminTestingFacet,
     liquidated,
+    priceAuthority,
+    timer,
   } = await setupBorrowFacet(100);
   const liquidationPromise = E(borrowFacet).getLiquidationPromise();
 
   const addCollateralInvitation = await E(
     borrowFacet,
   ).makeAddCollateralInvitation();
-
-  console.log(addCollateralInvitation);
 
   const addedAmount = collateralKit.amountMath.make(3);
 
@@ -219,30 +243,28 @@ test('borrow, then addCollateral, then getLiquidationPromise', async t => {
   );
 
   const collateralGiven = collateralKit.amountMath.make(103);
-  const liquidationTriggerValue = loanKit.amountMath.make(150);
 
-  const {
-    getPriceBelowPromiseKitEntries,
-    resolvePromiseKitEntry,
-    quoteIssuerKit,
-  } = adminTestingFacet;
-  const priceBelowPromiseKitEntries = getPriceBelowPromiseKitEntries();
-  t.is(priceBelowPromiseKitEntries.length, 2);
-  resolvePromiseKitEntry(priceBelowPromiseKitEntries[0], {}, 1);
-  resolvePromiseKitEntry(priceBelowPromiseKitEntries[1], {}, 2);
+  const quoteIssuer = await E(priceAuthority).getQuoteIssuer(
+    collateralKit.brand,
+    loanKit.brand,
+  );
+  const quoteAmountMath = await makeLocalAmountMath(quoteIssuer);
+
+  await timer.tick();
+  await timer.tick();
 
   const { quoteAmount, quotePayment } = await liquidationPromise;
-  const quoteAmount2 = await E(quoteIssuerKit.issuer).getAmountOf(quotePayment);
+  const quoteAmount2 = await E(quoteIssuer).getAmountOf(quotePayment);
 
   t.deepEqual(quoteAmount, quoteAmount2);
   t.deepEqual(
     quoteAmount,
-    quoteIssuerKit.amountMath.make(
+    quoteAmountMath.make(
       harden([
         {
-          assetAmount: collateralGiven,
-          price: liquidationTriggerValue,
-          timer: {},
+          amountIn: collateralGiven,
+          amountOut: loanKit.amountMath.make(103),
+          timer,
           timestamp: 2,
         },
       ]),

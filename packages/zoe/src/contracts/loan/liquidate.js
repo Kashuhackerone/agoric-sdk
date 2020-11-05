@@ -6,7 +6,7 @@ import { E } from '@agoric/eventual-send';
 import { depositToSeat, withdrawFromSeat } from '../../contractSupport';
 
 /**
- * This function is triggered by the priceOracle when the value of the
+ * This function is triggered by the priceAuthority when the value of the
  * collateral is below the mmr percentage. The function performs the
  * liquidation and then shuts down the contract. Note that if a
  * liquidation occurs, the borrower gets nothing and they can take no
@@ -15,7 +15,7 @@ import { depositToSeat, withdrawFromSeat } from '../../contractSupport';
  * @type {Liquidate}
  */
 export const liquidate = async (zcf, config, expectedValue) => {
-  const { collateralSeat, autoswap, lenderSeat } = config;
+  const { collateralSeat, autoswapPublicFacet, lenderSeat } = config;
 
   // For simplicity, we will sell all collateral.
   const zoeService = zcf.getZoeService();
@@ -38,7 +38,7 @@ export const liquidate = async (zcf, config, expectedValue) => {
 
   const payments = harden({ In: collateralPayment });
 
-  const swapInvitation = E(autoswap).makeSwapInInvitation();
+  const swapInvitation = E(autoswapPublicFacet).makeSwapInInvitation();
   const autoswapUserSeat = E(zoeService).offer(
     swapInvitation,
     proposal,
