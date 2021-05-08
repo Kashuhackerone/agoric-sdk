@@ -1,6 +1,6 @@
 # The Golang build container.
 # TODO This should be split out into the cosmos-connector.
-FROM golang:1.14-buster
+FROM golang:1.15-buster
 
 WORKDIR /usr/src/app
 COPY go.mod go.sum ./
