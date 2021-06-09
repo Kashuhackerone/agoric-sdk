@@ -15,7 +15,9 @@
     "build:webpack": "webpack -r esm --display-error-details --config pre-release-browser-tests/webpack/webpack.config.js",
     "build:browserify": "browserify transform-tests/output/test.cjs.js > bundles/browserify.js",
     "build:rollup": "rollup -c pre-release-browser-tests/rollup/rollup.config.test.js",
-    "build:parcel": "parcel build pre-release-browser-tests/parcel/index.html --public-url ./ -d bundles/parcel"
+    "build:parcel": "parcel build pre-release-browser-tests/parcel/index.html --public-url ./ -d bundles/parcel",
+    "snyk-protect": "snyk protect",
+    "prepublish": "npm run snyk-protect"
   },
   "browserslist": [
     "cover 50%"
@@ -24,7 +26,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@agoric/eventual-send": "file:agoric-eventual-send-0.3.1-dev.0.tgz"
+    "@agoric/eventual-send": "file:agoric-eventual-send-0.3.1-dev.0.tgz",
+    "snyk": "^1.623.0"
   },
   "devDependencies": {
     "browserify": "^16.2.3",
@@ -37,6 +40,7 @@
     "tape": "^4.10.1",
     "tape-promise": "^4.0.0",
     "webpack": "^4.29.6",
-    "webpack-cli": "^3.2.3"
-  }
+    "webpack-cli": "^3.3.5"
+  },
+  "snyk": true
 }
